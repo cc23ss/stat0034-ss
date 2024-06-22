@@ -1,0 +1,81 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-06-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#The following implementation was taken from Rubio (2024)
+
+#Importing the sampleSelection package - This is the focal package of my 
+#dissertation. 
+
+library(sampleSelection)
+
+#Importing the libraries ssmrob and ssmodels, which are for robust inference and 
+#modelling for sample selection models.
+
+library(ssmrob)
+library(ssmodels)
+
+#Defining the MLE for Tobit-2 model as the function MLETobit2, as discussed in 
+#Chapter 2 of my dissertation.
+#This takes inputs init, the inital value from where the parameter estimate is 
+#evaluated from, out, the sel, deso, dess, method, the optimisation method, 
+#and maxit, the maximum number of iterations.
+MLETobit2 = function(init, out, sel, deso, dess, 
+                     method = "nlminb", maxit = 100){
+  #Converting the inputs out and sel into vectors.
+  out = as.vector(out); sel = as.vector(sel)
+  #Defining x1 and w1 as the design matrices of the observed and selection 
+  #processes respectively.
+  x1 = as.matrix(cbind(1, deso)); w1 = as.matrix(cbind(1, dess))
+  #Defining p and q as the dimension of x1 and w1 respectively
+  p = ncol(x1); q = ncol(w2)
+  #Defining a function which evaluates the log-likelihood of the Tobit-2 model,
+  #loglik. This takes in as inputs a parameter vector, par. 
+  loglik = function(par){
+    #
+    sigma = 
+  }
+  #Conditional to evaluate the optimal value using nlminb if specified
+  #(by default).
+  if(method == "nlminb"){ 
+    OPT = nlminb(init, loglik, control = list(iter.max = maxit))
+  } 
+  #Conditional to evaluate the optimal value using the optim() function
+  else{
+    #Using optim to 
+    OPT = optim(init, loglik, control = list(maxit = maxit), method = method)
+  }
+  #
+  MLE = c(exp(OPT$par[1]), tanh(OPT$par[2]), OPT$par[-c(1:2)])
+  #
+  names(MLE) = 
+  #Storing all our outputs in the list outf.
+  outf = list(loglik = loglik, OPT = OPT, MLE = MLE)
+  #Returning outf as the function output. 
+  return(outf)
+}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
