@@ -98,12 +98,14 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
 
 ```
 
-## Example 1 - Profile Likelihood, applied onto 
+## Example 1 - Profile Likelihood, applied onto MEPS2001
 
-We use this example from Rubio (2024a) as an example for w
+We use this example from (Rubio 2024a) as an example using the profile 
+likelihood on a sample selection model, with modifications stated where 
+necessary both above and below. 
 
 ```{r MEPS2001, echo=FALSE}
-#We attach the
+#Attach the MEPS2001 dataset from the ssmrob package. 
 attach(MEPS2001)
 
 #Beginning of exploratory data analysis. 
@@ -158,8 +160,8 @@ summary(HMLE)
 ssMLE = selection(selectEq, obsEq1)
 summary(ssMLE)
 
-#
+po = ncol(dm.obs); ps = ncol(dm.sel2)
 detach(MEPS2001)
 ```
-
+## Applying the profile likelihood
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
