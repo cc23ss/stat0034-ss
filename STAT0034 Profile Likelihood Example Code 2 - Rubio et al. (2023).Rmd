@@ -1,0 +1,175 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+source("routines.R")
+
+library(knitr)
+library(numDeriv)
+library(survival)
+library(flexsurv)
+library(devtools)
+install_github("FJRubio67/HazReg")
+library(HazReg)
+
+```
+
+```{r}
+#Attaching the lung dataset, from the survival package, and using ?lung to get
+#an overview of the dataset.
+#?lung
+attach(lung)
+#Data Cleaning. 
+#removing observation 14, which was suggested in Rubio et.al. (2023) to be
+#missing, and storing this in the variable dat. 
+dat = lung[-14, ]
+
+
+#Creating a new design matrix, x, which contains the covariates age, sex 
+#(reparametrised to be binary 0/1), and ECOG performance.
+x = as.matrix(cbind(dat$age, dat$sex - 1, scale(dat$ph.ecog)))
+
+#Getting the number of observations considered in x.  
+n = nrow(x)
+
+#Isolating the age into xt.  
+xt = as.matrix(x[,1]);
+
+#Getting the status variable from dat, and changing it into a 0/1 binary 
+#variable. 
+status = dat$status - 1
+
+#Getting survival times in years from dat by dividing by 365days/year.
+#For completeness, although there are no zero times, we perform a correction 
+#here such that zero times are recorded as 1 day. 
+#To check that there are no zeros, we use which(times == 0)
+times = ifelse(dat$time == 0, 1/365.25, dat$time/365.25)
+
+
+#Performing some exploratory data analysis.
+head(dat)
+dim(dat)
+
+#
+
+detach(lung)
+```
+
+```{r}
+OPTPGW0 = GHMLE(init = rep(0, 3), times = times, status = status, 
+                hstr = "baseline", dist = "PGW", method = "nlminb", maxit = 1E4)
+
+OPTPGWPH = GHMLE(init = c(OPTPGW0$OPT$par*0, rep(0, ncol(x))), times = times, 
+                status = status, hstr = "PH", dist = "PGW", des = x, 
+                method = "nlminb", maxit = 1E4)
+
+OPTPGWAFT = GHMLE(init = c(OPTPGW0$OPT$par, rep(0, ncol(x))), times = times, 
+                status = status, hstr = "PH", dist = "PGW", des = x, 
+                method = "nlminb", maxit = 1E4)
+
+OPTPGWGH = GHMLE(init = c(OPTPGW0$OPT$par, rep(0, ncol(xt)), rep(0,ncol(x))), 
+                 times = times, status = status, hstr = "GH", dist = "PGW", 
+                 des = x, des_t = xt, method = "nlminb", maxit = 1E4)
+
+MLE.PGW0 = exp(OPTPGW0$OPT$par[1:3])
+MLE.PGWGH = c(exp(OPTPGWGH$OPT$par[1:3]), OPTPGWGH$OPT$par[-c(1:3)])
+MLE.PGWAFT = c(exp(OPTPGWAFT$OPT$par[1:3]), OPTPGWAFT$OPT$par[-c(1:3)])
+MLE.PGWPH = c(exp(OPTPGWPH$OPT$par[1:3]), OPTPGWPH$OPT$par[-c(1:3)])
+
+```
+
+```{r}
+AIC.PGW0 = 2*OPTPGW0$OPT$objective + 2*length(MLE.PGW0)
+AIC.PGWGH = 2*OPTPGWGH$OPT$objective + 2*length(MLE.PGWGH)
+AIC.PGWAFT = 2*OPTPGWAFT$OPT$objective + 2*length(MLE.PGWAFT)
+AIC.PGWPH = 2*OPTPGWPH$OPT$objective + 2*length(MLE.PGWPH)
+
+AICs = c(AIC.PGW0, AIC.PGWPH, AIC.PGWAFT, AIC.PGWGH)
+which.min(AICs)
+AICs
+```
+
+## Near redundancy via the Hessian Method
+```{r}
+hess.pgw = -hessian(func = OPTPGWGH$log_lik, x = OPTPGWGH$OPT$par)
+eigen.val = eigen(hess.pgw)$values
+ref.val = abs(as.vector(eigen.val))/max(abs(as.vector(eigen.val)))
+sev = sort(ref.val)
+sev
+##WHAT. 
+##TODO: WHY DON'T THESE VALUES ALIGN. 
+
+```
+## Bootstrapping
+```{r}
+B = 1E3
+
+
+MLE.B = matrix(0, ncol = length(MLE.PGWGH), nrow = B)
+indHess = vector()
+for (i in 1:B){
+  ind = sample(1:n, replace = T)
+  OPTB = GHMLE(init = c(rep(0, ncol(xt) + 3 + ncol(x))), times = times[ind], 
+               status = status[ind], hstr = "GH", dist = "PGW", des = x[, ind], 
+               des_t = xt[, ind], method = "nlminb", maxit = 1E4)
+  hessb = -hessian(OPTB$log_lik, x = OPTB$OPT$par)
+  #THIS IS A BUG. 
+  eigen.val = eigen(hessb)$values
+  ref.val = abs(as.vector(eigen.val))/abs(max(as.vector(eigen.val)))
+  sev = sort(ref.val)
+}
+
+#TODO: find some sort of summary statistic here...
+
+```
+
+## Practical Non-identifiability 
+
+```{r}
+
+p0 = ncol(xt)
+p1 = ncol(x)
+
+p = length(MLE.PGWGH)
+ML = OPTPGWGH$OPT$objective
+
+#Carry-over from my modified prof.lik function in example 1. 
+prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb"){
+#TODO: ADD COMMENTS
+  #Creating the tempf function to perform 
+  tempf = function(par){
+    tempv = rep(0, p)
+    tempv = replace(x = tempv, c(1:p)[-ind], par)
+    tempv[ind] = parint
+    return(OPT$loglik(tempv))
+  }
+  #MODIFICATION - condensed the two conditional statements into a single 
+  #conditional using truthy values & their correspondence to 0/1.
+  #MODIFICATION - Add the max.iter variable here
+  if (method == "nlminb"){
+    #Evaluate the output out as the negative of the nlimb() optimisation output, 
+    #since this will mean we get a maximum, as nlminb() finds minima. 
+  out = -nlminb(OPT$OPT$par[-ind]*rep(init == "MLE", length(OPT$OPT$par[-ind])), 
+                tempf, control = list(iter.max = max.iter))$objective + ML
+  }
+  #MODIFICATION - Add a conditional statement for any non-nlminb method 
+  #supported in optim. 
+  else{
+    #Evauate the output out as the negative of the optim() minimisation output
+    #to get a maximum estimate.
+    out = -optim(par = OPT$OPT$par[-ind]*rep(init == "MLE", 
+      length(OPT$OPT$par[-ind])), fn = tempf, method = method, control = 
+      list(maxit = max.iter, reltol = 1E-5))$value + ML
+  }
+  #We return the exponential of the output since we used the log-likelihood.
+  #This returns the profile likelihood. 
+  return(rep(exp(out) <= 1, length(exp(out)))*exp(out))
+}
+
+```

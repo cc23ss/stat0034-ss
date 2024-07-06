@@ -92,7 +92,7 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
   #Storing all our outputs in the list outf.
   outf = list(loglik = loglik, OPT = OPT, MLE = MLE)
   #Returning outf as the function output. 
-  return(exp(outf))
+  return(outf)
   
 }
 ```
@@ -129,7 +129,7 @@ boxplot(dm.sel1[, c(1, 3, 5, 7)])
 pairs(dm.sel1[, c(1, 3, 5, 7)])
 summary(dm.sel1)
 #TODO: EDA
-
+#dm.sel2 = cbind(income, ..., )
 #... for the selection model, with no overlapping covariates
 dm.sel2 = MEPS2001[, 1]
 
@@ -140,13 +140,22 @@ dm.sel2 = MEPS2001[, 1]
 
 sel = as.logical(dambexp)
 
-#Observed responsses, corresponding to log ambulatory expenditures, lnambx.
+#Observed responses, corresponding to log ambulatory expenditures, lnambx.
 y = lnambx
 
+#Finding the MLE of the Tobit-2 likelihood, with unscaled parameter. 
 OPT = MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = dm.obs, 
                 dess = dm.sel1, method = "nlminb", maxit = 1E4, beta_par = 0)
 
 MLE = OPT$MLE
+MLE
+
+#Doing the same thing, but with scaled beta parameter.
+OPT2 = MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = dm.obs, 
+                dess = dm.sel1, method = "nlminb", maxit = 1E4, beta_par = 1)
+
+MLE2 = OPT2$MLE
+MLE2
 MLE
 #Comparing this to other optimisation algorithms. 
 selectEq = dambexp ~ age + female + educ + blhisp + totchr + ins + income
@@ -155,9 +164,7 @@ obsEq1 = update(selectEq, . - dambexp + y ~ . - income)
 HMLE = HeckmanCL(selectEq, obsEq1, data = MEPS2001)
 summary(HMLE)
 
-#Second optimiser. 
-ssMLE = selection(selectEq, obsEq1)
-#
+#TODO: Second round. 
 summary(ssMLE)
 
 #TODO: Alter rho from |rho| = 0 to |rho| = 1, to see the effects of correlation. 
@@ -170,19 +177,39 @@ po = ncol(dm.obs); ps = ncol(dm.sel2)
 p = length(MLE)
 ML = OPT$OPT$objective
 
-prof.lik = function(parint, ind, init = "zero", max.iter = 1E4){
-  #MODIFICATION: Streamlined the tempf function from 4 lines to 3 lines by
-  #directly manipulating the tempv dummy variable. 
+#Create the function prof.lik to evaluate the profile likelihood. 
+#This has parameters parint, for the parameter of interest (or its
+#reparametrisations), ind, the corresponding index, init, the initial value used
+#for optimisation, either from zeros or from the regular MLE, max.iter, the 
+#number of iterations, and method, the optimisation algorithm used.
+#MODIFICATIONS: Added method and max.iter as new parameters. 
+prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb"){
+#TODO: ADD COMMENTS
+  #Creating the tempf function to perform 
   tempf = function(par){
-    tempv = rep(par, p); tempv[ind] = parint
+    tempv = rep(0, p)
+    tempv = replace(x = tempv, c(1:p)[-ind], par)
+    tempv[ind] = parint
     return(OPT$loglik(tempv))
   }
-  #MODIFICATION - condensed the two conditional statements into a single line 
-  #using truthy values & their correspondence to 0/1.
-  #MODIFICATION - Add the max.iter variable in order to choose the number 
-  #of nlminb iterations. 
+  #MODIFICATION - condensed the two conditional statements into a single 
+  #conditional using truthy values & their correspondence to 0/1.
+  #MODIFICATION - Add the max.iter variable here
+  if (method == "nlminb"){
+    #Evaluate the output out as the negative of the nlimb() optimisation output, 
+    #since this will mean we get a maximum, as nlminb() finds minima. 
   out = -nlminb(OPT$OPT$par[-ind]*rep(init == "MLE", length(OPT$OPT$par[-ind])), 
                 tempf, control = list(iter.max = max.iter))$objective + ML
+  }
+  #MODIFICATION - Add a conditional statement for any non-nlminb method 
+  #supported in optim. 
+  else{
+    #Evauate the output out as the negative of the optim() minimisation output
+    #to get a maximum estimate.
+    out = -optim(par = OPT$OPT$par[-ind]*rep(init == "MLE", 
+      length(OPT$OPT$par[-ind])), fn = tempf, method = method, control = 
+      list(maxit = max.iter, reltol = 1E-5))$value + ML
+  }
   #We return the exponential of the output since we used the log-likelihood.
   #This returns the profile likelihood. 
   return(exp(out))
@@ -208,7 +235,7 @@ curve(prof1, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma),
 #Perform the same procedure from above, but start with the MLE as an initial 
 #value. 
 prof1a = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
-                                          init = "MLE"))
+  init = "MLE", method = "BFGS"))
 
 curve(prof1a, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
       ylab = "Profile Likelihood")
@@ -218,43 +245,48 @@ curve(prof1a, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma),
 
 #Perform the same procedure as for prof1a, but this time using 100k iterations
 #instead of 10k to diagnose the roughness of the MLE profile likelihood curve. 
-prof1b = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
-                                          init = "MLE", max.iter = 1E5))
+#prof1b = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+#  init = "zero", max.iter = 1E5, method = "BFGS"))
 
-curve(prof1b, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
-      ylab = "Profile Likelihood")
-
-#Same result - not a numerical/no. of iterations problem, perhaps it is that the
-#profile likelihood of this particular example, e.g. parameters, have issues 
-#here.
+#curve(prof1b, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
+#      ylab = "Profile Likelihood")
+ 
+#Same result - not to do with runtime. 
+#However, it turns out the problem is to do with the optimisation algorithm. 
+#Putting a method which isn't "nlminb" will give non-degenerate results. 
 
 #Performing the same procedure as in prof1a, except this time for rho.
 #Note that as we used a tanh link for the rho parameter, we need to invert the
 #transformation when plotting the profile likelihood.
-prof2 <- Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
-                                          init = "MLE"))
+prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
+                                    init = "MLE", method = "nlminb"))
 
+curve(prof2,-0.6, 0.25 , n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
 
-curve(prof2,-0.6,0.25 , n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
-
-#For the next two we optimise and plot the profile likelihood like for prof1a. 
-prof3 <- Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
+#Performing the same procedure here as well. 
+prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
 curve(prof3,4.25,6 , n = 50, lwd = 2, xlab = expression(beta[0]), ylab = "Profile Likelihood")
 
 ```
 ### Constructing a Profile Likelihood Confidence Interval
 ```{r}
-#Vectorise a shifted version of the 
+#Vectorise a shifted version of the rho parameter (parameter 2), to create a
+#0.147-profile likelihood confidence interval - see Chapter 3 for more details.
 intprof2 = Vectorize(function(rho) prof2(rho) - 0.147)
-#what is prof2? Need to ask 
-curve(intprof2,-0.6,0.25 , n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
-
+intprof2
+#Plotting this new profile log-likelihood with the curve() function
+curve(prof2,-0.6,0.25, n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
+#... then adding the line corresponding to 0.147 to show the confidence interval
+#of interest. 
 abline(h = 0.147, lwd = 2, col = "red")
 
-LP = uniroot(f = intprof2, interval = c(-0.5,-0.4))$root
+#Evaluating the lower and upper profile likelihood confidence interval, LP and
+#UP respectively, for a 0.147-confidence interval.  
 
+LP = uniroot(f = intprof2, interval = c(-0.5, -0.4))$root
 UP = uniroot(f = intprof2, interval = c(0.1,0.2))$root
-
+#Inverting the tanh link for rho to get a 0.147-profile likelihood confidence
+#interval.
 tanh(c(LP, UP))
 
 
