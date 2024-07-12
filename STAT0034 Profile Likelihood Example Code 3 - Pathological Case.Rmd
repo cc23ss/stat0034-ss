@@ -1,0 +1,112 @@
+---
+title: "Example 3"
+output: html_document
+date: "2024-07-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+source("routines.R")
+source("MLETobit2.R")
+```
+
+## Including Plots
+
+Final output - Profile Likelihood. 
+
+## Exploratory Data Analysis
+
+```{r pressure, echo=FALSE}
+#Loading in the Mroz97 dataset
+dat = Mroz87
+attach(Mroz87)
+#Checking what variables are in Mroz87
+str(Mroz87)
+ls(Mroz87)
+#?Mroz87
+#Getting a summary of Mroz87.
+summary(Mroz87)
+```
+## Maximum Likelihood Estimation
+```{r}
+#TODO: Select parameters of interest for the design matrices:
+#... for the selection process.
+dm.sel = cbind(1, )
+#... for the observed process.
+dm.obs = cbind(1, )
+
+#My notes will have something on it. 
+
+#TODO: Find a good response for the selection process. 
+resp.sel = as.logical(lfp)
+
+#TODO: Find a good response for the observed process. 
+resp.obs = hours
+
+#TODO: Write out the number of parameters for the observed and selection 
+#processes, not including the Tobit-2 parameters.
+
+npar.sel = ncol(dm.sel); npar.obs = ncol(dm.obs)
+  
+#TODO: Find the MLEs, using MLETobit2 - MODIFICATION. 
+OPT = MLETobit2(init = rep(0, npar), )
+
+#Returns the Tobit-2 MLEs. 
+OPT$OPT$par
+
+
+#TODO: Analyse the MLEs - Perhaps find confidence intervals? 
+
+```
+
+
+## Profile Likelihood
+```{r}
+
+#Insert profile likelihood from example 1.
+#Create the function prof.lik to evaluate the profile likelihood MLE. 
+#This has parameters parint, for the parameter of interest (or its
+#reparametrisations), ind, the corresponding index, init, the initial value used
+#for optimisation, either from zeros or from the regular MLE, max.iter, the 
+#number of iterations, and method, the optimisation algorithm used.
+#MODIFICATIONS: Added method and max.iter as new parameters. 
+prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb"){
+  #Creating the tempf function as a dummy function to perform optimisation over.
+  tempf = function(par){
+    tempv = rep(0, p)
+    tempv = replace(x = tempv, c(1:p)[-ind], par)
+    tempv[ind] = parint
+    return(OPT$loglik(tempv))
+  }
+  #MODIFICATION - condensed the two conditional statements into a single 
+  #conditional using truthy values & their correspondence to 0/1.
+  #MODIFICATION - Add the max.iter variable here
+  if (method == "nlminb"){
+    #Evaluate the output out as the negative of the nlimb() optimisation output, 
+    #since this will mean we get a maximum, as nlminb() finds minima. 
+  out = -nlminb(OPT$OPT$par[-ind]*rep(init == "MLE", length(OPT$OPT$par[-ind])), 
+                tempf, control = list(iter.max = max.iter))$objective + ML
+  }
+  #MODIFICATION - Add a conditional statement for any non-nlminb method 
+  #supported in optim. 
+  else{
+    #Evauate the output out as the negative of the optim() minimisation output
+    #to get a maximum estimate.
+    out = -optim(par = OPT$OPT$par[-ind]*rep(init == "MLE", 
+      length(OPT$OPT$par[-ind])), fn = tempf, method = method, control = 
+      list(maxit = max.iter, reltol = 1E-5))$value + ML
+  }
+  #We return the exponential of the output since we used the log-likelihood.
+  #This returns the profile likelihood MLE. 
+  return(exp(out))
+}
+
+#TODO: 
+```
+
+```{r}
+```

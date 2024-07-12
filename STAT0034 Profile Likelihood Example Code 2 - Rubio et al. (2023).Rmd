@@ -1,11 +1,17 @@
 ---
-title: "R Notebook"
+title: "Example 2"
 output: html_notebook
+date: "07-07-2024"
 ---
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
 
 ```{r}
 source("routines.R")
@@ -55,6 +61,8 @@ times = ifelse(dat$time == 0, 1/365.25, dat$time/365.25)
 #Performing some exploratory data analysis.
 head(dat)
 dim(dat)
+
+summary(dat)
 
 #
 
@@ -132,13 +140,11 @@ for (i in 1:B){
 ## Practical Non-identifiability 
 
 ```{r}
-
 p0 = ncol(xt)
 p1 = ncol(x)
 
 p = length(MLE.PGWGH)
 ML = OPTPGWGH$OPT$objective
-
 #Carry-over from my modified prof.lik function in example 1. 
 prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb"){
 #TODO: ADD COMMENTS
@@ -171,5 +177,4 @@ prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb
   #This returns the profile likelihood. 
   return(rep(exp(out) <= 1, length(exp(out)))*exp(out))
 }
-
 ```
