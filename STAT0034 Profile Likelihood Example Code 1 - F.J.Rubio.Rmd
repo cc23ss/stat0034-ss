@@ -181,9 +181,6 @@ outcomeEq = lnambx ~ age + female + educ + blhisp + totchr + ins
 ssMLE = selection(selectEq, outcomeEq)
 summary(ssMLE)
 
-#TODO: Alter rho from |rho| = 0 to |rho| = 1, to see the effects of correlation. 
-#Converting the inputs out and sel into vectors.
-
 #Below is some code taken from the MLETobit2 function, in order to do a study 
 #on the effects of changing the correlation coeficient, rho. 
 #As this was taken from the MLETobit2 function, comments will be more sparing. 
@@ -195,9 +192,8 @@ out.test = as.vector(y); sel.test = as.vector(sel)
 x1.test = as.matrix(cbind(1, dm.obs)); w1.test = as.matrix(cbind(1, dm.sel1))
 p.test = ncol(x1.test); q.test = ncol(w1.test)
 #Here, we only apply the link to sigma.test, as we will iterate over rho, and 
-#as rho is squared within our log-likelihood, we evaluate the Tobit-2 
-#log-likelihood within the range [0, 1]. 
-sigma.test = exp(MLE[1])
+#we evaluate the Tobit-2 log-likelihood within the range [-1, 1]. 
+sigma.test = MLE[1]
 beta.test = MLE[c(3:(p.test+2))]; alpha.test = MLE[(p.test+3):(p.test+q.test+2)]
 #We'll opt to not perform the reparametrisation of beta as our main focus is on
 #rho. 
@@ -211,7 +207,7 @@ loglik.Tobit2 = rep(NA, no.steps)
 #Define an indexing dummy variable, i, to store our log-likelihoods within 
 #loglik.Tobit2
 i = 1
-#Initiate a for loop for rho in [0, 1], iterating over seq(0,1, 
+#Initiate a for loop for rho in [-1, 1], iterating over seq(0,1, 
 #length.out = no.steps).
 
 #TODO: Check this again.
@@ -228,21 +224,40 @@ for (rho in seq(-1, 1, length.out = no.steps)){
   #Incrementing the dummy variable by 1.
   i=i+1
 }
+
+ll.Tobit2.rho = function(rho){
+  ll = sum(pnorm(-w_alpha.test[inds0.test], log = T)) + 
+       sum(pnorm((w_alpha.test[inds1.test] + rho*(out.test[inds1.test] - 
+            x_beta.test[inds1.test])/sigma.test)/sqrt(1 - rho^2), log = T)) + 
+       sum(dnorm(out.test[inds1.test], mean = x_beta.test[inds1.test], 
+                 sd = sigma.test, log = T))
+  return(ll)
+}
+
 loglik.Tobit2
-#Plotting our results here. Very interestingly, it doesn't seem like
-#the correlation matters much to the log-likelihood until we reach 
-#unity/determinism, and at that point our sample becomes absurdly unlikely. 
-#Note that our y-axis is in log-scale. 
+#Plotting our results here. 
+#Firstly we compare our results against the optimisation algorithm as a check - 
+#we find the standardised absolute distance between the two. 
+#Note we add the objective of the optimisation step, OPT,
+#as the objective there is the negative of the log-likelihood. 
+abs((max(loglik.Tobit2) + OPT$OPT$objective)/OPT$OPT$objective)
+#Very small difference - seems that 
 
 #Try to do beta/sigma reparametrisation. 
 
 #Relative likelihood
-plot(loglik.Tobit2, x = seq(-1, 1, length.out = no.steps), 
+plot(loglik.Tobit2, x = seq(-1, 1, length.out = no.steps), xlim = c(-1, 1),
      xlab = expression(rho), ylab = "Log-likelihood", type = "l")
 #For illustrative purposes, we include a line and legend representing the 
 #original MLE for rho below, in red. 
 abline(v = abs(MLE[2]), col = "red")
 legend(x = "bottomleft", legend = c("MLE"), col = c("red"), pch = 16)
+
+#Think about this again.
+thing = Vectorize(function(par) ll.Tobit2.rho(par))
+curve(thing, c(-1, 1), n = 500)
+#NOTE: This seems really flat - is this actually correct? 
+#nah.
 ```
 ## Applying the profile likelihood
 ```{r}
