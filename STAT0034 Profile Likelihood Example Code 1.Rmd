@@ -116,13 +116,11 @@ head(MEPS2001)
 #TODO: Exploratory data analysis. 
 
 #Defining design matrices (less the intercept column). 
-#TODO: Change influential variables? 
 #... for the observable model.
 dm.obs = cbind(age, female, educ, blhisp, totchr, ins)
 boxplot(dm.obs[, c(1, 3, 5)])
 pairs(dm.obs[, c(1, 3, 5)])
 summary(dm.obs)
-
 
 dm.sel = cbind(dm.obs, income)
 boxplot(dm.sel[, c(1, 3, 5, 7)])
@@ -159,24 +157,24 @@ MLE2
 log(abs(MLE-MLE2), 10)
 
 #Comparing this to other optimisation algorithms. 
-#Defining two equation objects, selectEq and obsEq1, which define the 
+#Defining two equation objects, selectEq and obsEq, which define the 
 #relationship between the response and the covariates for the selection and
 #observable process respectively. 
 selectEq = dambexp ~ age + female + educ + blhisp + totchr + ins + income
-obsEq1 = update(selectEq, . - dambexp + y ~ . - income)
+obsEq = update(selectEq, . - dambexp + y ~ . - income)
 
 #Using the HeckmanCL function from the ssmodels package to perform MLE on the 
 #data, repeating what we did above with this function. 
-HMLE = HeckmanCL(selectEq, obsEq1, data = MEPS2001)
+HMLE = HeckmanCL(selectEq, obsEq, data = MEPS2001)
 summary(HMLE)
 
 
 #TODO: Second round. 
 #Using the 
-ssMLE = selection(selectEq, obsEq1)
+ssMLE = selection(selectEq, obsEq)
 summary(ssMLE)
 
-ssMLE.2step = selection(selectEq, obsEq1, data = MEPS2001, method = "2step")
+ssMLE.2step = selection(selectEq, obsEq, data = MEPS2001, method = "2step")
 ssMLE.2step
 ssMLE
 #Comparing the two, they do appear to diverge a lot actually. This was not 
@@ -247,11 +245,10 @@ curve(prof1, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma),
 #Perform the same procedure from above, but start with the MLE as an initial 
 #value. 
 prof1a = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
-  init = "MLE", method = "BFGS"))
+  init = "MLE", method = "nlminb"))
 
 curve(prof1a, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
-      ylab = "Profile Likelihood")
-
+      ylab = "Profile Likelihood") 
 #COMMENT: very interesting that the smoothness is so much less - some 
 #investigation performed to see if it wasn't a numerical limitation below. 
 
@@ -267,6 +264,14 @@ curve(prof1a, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma),
 #However, it turns out the problem is to do with the optimisation algorithm. 
 #Putting a method which isn't "nlminb" will give non-degenerate results. 
 
+
+#Redoing prof1a, except using the "BFGS" algorithm instead of the nlminb method.
+prof1c = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+  init = "MLE", method = "BFGS"))
+
+curve(prof1c, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
+      ylab = "Profile Likelihood")
+
 #Performing the same procedure as in prof1a, except this time for rho.
 #Note that as we used a tanh link for the rho parameter, we need to invert the
 #transformation when plotting the profile likelihood.
@@ -275,7 +280,8 @@ prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2,
 
 curve(prof2,-0.6, 0.25 , n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
 
-#Performing the same procedure here as well. 
+#Performing the same procedure here as well for beta_0, the intercept term for 
+#the observable process. This shows every possible case in this model. 
 prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
 curve(prof3,4.25,6 , n = 50, lwd = 2, xlab = expression(beta[0]), ylab = "Profile Likelihood")
 
@@ -283,10 +289,10 @@ curve(prof3,4.25,6 , n = 50, lwd = 2, xlab = expression(beta[0]), ylab = "Profil
 ### Constructing a Profile Likelihood Confidence Interval
 ```{r}
 #Vectorise a shifted version of the rho parameter (parameter 2), to create a
-#0.147-profile likelihood confidence interval - see Chapter 3 for more details.
+#0.147-profile likelihood confidence interval - see Chapter 4 for more details.
 intprof2 = Vectorize(function(rho) prof2(rho) - 0.147)
 intprof2
-#Plotting this new profile log-likelihood with the curve() function
+#Plotting this new profile log-likelihood with the curve() function.
 curve(prof2,-0.6,0.25, n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
 #... then adding the line corresponding to 0.147 to show the confidence interval
 #of interest. 
