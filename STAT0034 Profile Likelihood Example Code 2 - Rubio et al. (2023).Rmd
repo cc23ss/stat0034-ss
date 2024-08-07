@@ -81,11 +81,11 @@ summary(dat)
 #See Rubio (2023) for more details, but the main distribution we are looking at
 #is the PGW (power-generalised Weibull) model, where the "random variable"
 #is mainly defined by a linear predictor, in particular, we have the structure
-#h(t; alpha, beta, xi) = h_0(t*exp{x^~'_i%*%alpha}, eta)exp{x'_i%*%beta}})
+#h(t; beta_s, beta_o, xi) = h_0(t*exp{x^~'_i%*%beta_s}, eta)exp{x'_i%*%beta_o}})
 #which defines the General Hazard (GH) structure. We optimise (OPT) over the GH
-#structure, for the cases alpha = 0 (Proportional hazards, PH), alpha = beta, 
+#structure, for the cases beta_s = 0 (Proportional hazards, PH), beta_s = beta_o, 
 #x^~'_i = x'_i (Accelerated Failure Time, AFT), and the case where we have NO
-#covariates at all, i.e. alpha = beta = 0 (0). 
+#covariates at all, i.e. beta_s = beta_o = 0 (0). 
 
 #This is NOT necessary to understand for our purposes - the only thing we need 
 #is a single case as we just want to test the Hessian method, so 
@@ -115,20 +115,21 @@ OPTPGWGH = GHMLE(init = c(OPTPGW0$OPT$par, rep(0, ncol(xt)), rep(0,ncol(x))),
 #the results aligned with those of Rubio, Montoya and Espinola (2023).
 #Furthermore, we rounded them to 3 d.p. to ensure the results agreed with those 
 #in the paper, using the round(, digits = 3) function. 
+
 #To get the MLEs we note that a log-link was used for the first 3 parameters 
 #(see ?GHLME - arugment init for more details), so their MLEs are exponentiated, 
 #while the other MLEs are left as is.
 MLE.PGW0 = exp(OPTPGW0$OPT$par[1:3])
-round(MLE.PGW0, digits = 3)
+#round(MLE.PGW0, digits = 3)
 MLE.PGWPH = c(exp(OPTPGWPH$OPT$par[1:3]), OPTPGWPH$OPT$par[-c(1:3)])
-round(MLE.PGWPH, digits = 3)
+#round(MLE.PGWPH, digits = 3)
 MLE.PGWAFT = c(exp(OPTPGWAFT$OPT$par[1:3]), OPTPGWAFT$OPT$par[-c(1:3)])
-round(MLE.PGWAFT, digits = 3)
+#round(MLE.PGWAFT, digits = 3)
 MLE.PGWGH = c(exp(OPTPGWGH$OPT$par[1:3]), OPTPGWGH$OPT$par[-c(1:3)])
-round(MLE.PGWGH, digits = 3)
+#round(MLE.PGWGH, digits = 3)
 ```
 
-```{r, eval = F}
+```{r, eval = F, echo = F}
 #This snippet of code is not necessary for our purposes and was included as a 
 #safety check, to ensure that everything above was done correctly. 
 #Evaluating their AICs. 
@@ -167,6 +168,7 @@ ref.val = abs(as.vector(eigen.val))/max(abs(as.vector(eigen.val)))
 #Sorting our reference values in descending order and storing this in the vector
 #sev. 
 sev = sort(ref.val)
+#returning sev. 
 sev
 
 #We see here that the largest reference value is smaller than 0.001, so there
@@ -219,9 +221,55 @@ mean(indHess)
 #Use MLE.B to make confidence region??? 
 #Marginalising? 
 par1.CI = quantile(x = MLE.B[,1], c(0.025, 0.975))
-#TODO: find some sort of summary statistic here...
 #done - just use the Bootstrapped-confidence intervals. 
+#Can also use the BC_a method from DiCiccio and Efron (1996). Possible to 
+#estimate all required parameters. Should ask. 
 
+#Create the function BC_a.ci, which implements this, and takes in parameters 
+#B, the number of bootstrap samples, MLE, the MLE VECTOR of the data, 
+#ind, the index determining which MLE to create the confidence interval for,  
+#alpha, the significance level of the confidence interval, and booted.MLes, 
+#the matrix of bootstrapped MLEs. 
+BC_a.ci = function(B, MLE, ind, alpha, booted.MLEs){
+  #Evaluate z_0.hat as in DiCiccio and Efron (1996). 
+  z_0.hat = qnorm(1/B*sum(booted.MLEs[,ind] < MLE[ind]))
+  #Defining n to be the number of observations, i.e. the number of rows in our 
+  #dataset.
+  n = nrow(dat)
+  #Evaluating the Jackknife influence functionss so we can evaluate a.hat.
+  jackknives = c(rep(NA, n))
+  #We do this iteratively. 
+  for (i in 1:n){
+    #Get the MLEs for the GHPGW model, omitting the ith observation, and 
+    #storing this in the variable OPT_i. For more details see the above section
+    #where we evaluated all the MLEs in the regular case. 
+    OPT_i = GHMLE(init = c(rep(0, ncol(xt) + 3 + ncol(x))), times = times[-i], 
+               status = status[-i], hstr = "GH", dist = "PGW", des = x[-i,], 
+               des_t = xt[-i,], method = "nlminb", maxit = 1E4)
+    #Getting the MLEs without i, as detailed above in the regular case. 
+    MLE_i = c(exp(OPT_i$OPT$par[1:3]), OPT_i$OPT$par[-c(1:3)])
+    jackknives[i] = (n-1)*(MLE[ind] - MLE_i[ind])
+  }
+  #Defining a.hat as in DiCaccio and Efron (1996), and evaluating the lower 
+  #bound (LB) and upper bound (UB) of the BC_a confidence interval.
+  a.hat = 1/6*sum(jackknives^3)/(sum(jackknives^2)^1.5)
+    LB = quantile(x = booted.MLEs[,ind], probs = pnorm(z_0.hat + (z_0.hat + 
+          qnorm(alpha/2 )/(1 - a.hat*(z_0.hat + qnorm(alpha/2) ) ) ) ) )
+  UB = quantile(x = booted.MLEs[,ind], probs = pnorm(z_0.hat + (z_0.hat + qnorm(1 - 
+          alpha/2 )/(1 - a.hat*(z_0.hat + qnorm(1-alpha/2) ) ) ) ) )
+  #Defining the variable bootstrap.CI to be our BC_a CI.
+  bootstrap.CI = c(LB, UB)
+  #Returning bootstrap.CI. 
+  return(bootstrap.CI)
+}
+
+par1.CI.BC_a = BC_a.ci(B, MLE.PGWGH, 1, 0.05, MLE.B)
+par1.CI.BC_a
+par1.CI
+par2.CI = quantile(MLE.B[, 2], c(0.025, 0.975))
+par2.CI.BC_a = BC_a.ci(B, MLE.PGWGH, 2, 0.05, MLE.B)
+par2.CI.BC_a
+par2.CI
 ```
 
 ## Practical Non-identifiability 
@@ -285,13 +333,13 @@ curve(prof2,0.8,2 , n = 500, lwd = 2, xlab = expression(nu), ylab = "Profile Lik
 prof3 = Vectorize(function(par) prof.lik(log(par),3))
 curve(prof3,0.25,2.5 , n = 200, lwd = 2, xlab = expression(gamma), ylab = "Profile Likelihood")
 prof4 = Vectorize(function(par) prof.lik(par,4))
-curve(prof4,-5,5, n = 500, lwd = 2, xlab = expression(alpha[1]), ylab = "Profile Likelihood", ylim = c(0,1))
+curve(prof4,-5,5, n = 500, lwd = 2, xlab = expression(beta_s[1]), ylab = "Profile Likelihood", ylim = c(0,1))
 prof5 = Vectorize(function(par) prof.lik(par,5))
-curve(prof5,-2,2 , n = 200, lwd = 2, xlab = expression(beta[1]), ylab = "Profile Likelihood", ylim = c(0,1))
+curve(prof5,-2,2 , n = 200, lwd = 2, xlab = expression(beta_o[1]), ylab = "Profile Likelihood", ylim = c(0,1))
 prof6 = Vectorize(function(par) prof.lik(par,6))
-curve(prof6,-1.1, -0.1 , n = 200, lwd = 2, xlab = expression(beta[2]), ylab = "Profile Likelihood")
+curve(prof6,-1.1, -0.1 , n = 200, lwd = 2, xlab = expression(beta_o[2]), ylab = "Profile Likelihood")
 prof7 = Vectorize(function(par) prof.lik(par,7))
-curve(prof7,0,0.65, n = 200, lwd = 2, xlab = expression(beta[3]), ylab = "Profile Likelihood")
+curve(prof7,0,0.65, n = 200, lwd = 2, xlab = expression(beta_o[3]), ylab = "Profile Likelihood")
 detach(lung)
 
 ```

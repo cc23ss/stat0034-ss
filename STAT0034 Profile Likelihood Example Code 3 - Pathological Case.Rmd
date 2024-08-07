@@ -3,41 +3,63 @@ title: "Example 3"
 output: html_document
 date: "2024-07-07"
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-```{r cars}
+```{r}
 source("routines.R")
 source("MLETobit2.R")
+#We import the samle libraries from example 1 here, with identical comments. 
+#Importing the sampleSelection package - This is the focal package of my 
+#dissertation. 
+
+library(sampleSelection)
+
+#Importing the libraries ssmrob and ssmodels, which are for robust inference and 
+#modelling for sample selection models.
+
+library(ssmrob)
+library(ssmodels)
+
+#Importing packages from example 2 here to apply the Hessian method. 
+library(knitr)
+library(numDeriv)
+library(survival)
+library(flexsurv)
+library(devtools)
 ```
-
-## Including Plots
-
-Final output - Profile Likelihood. 
 
 ## Exploratory Data Analysis
 
 ```{r pressure, echo=FALSE}
-#Loading in the Mroz97 dataset
+#Loading in the Mroz87 dataset
 dat = Mroz87
-attach(Mroz87)
 #Checking what variables are in Mroz87
-str(Mroz87)
-ls(Mroz87)
+str(dat)
+ls(dat)
 #?Mroz87
 #Getting a summary of Mroz87.
-summary(Mroz87)
+summary(dat)
+#As suggested by Toomet and Henningsen (2008), we create the variable kids, an
+#indicator for whether the family has any kids, so if the sum of kids5 and 
+#kids618 exceeds 0. 
+dat$kids = (dat$kids5 + dat$kids618 > 0)
+dat$exper2 = dat$exper^2
+dat$age2 = dat$age^2
+
+#dat
+#TODO: EDA 
+#TODO: Maybe perform the linear predictors from Toomet and Henningsen (2008)? 
 ```
 ## Maximum Likelihood Estimation
 ```{r}
+attach(dat)
 #TODO: Select parameters of interest for the design matrices:
 #... for the selection process.
-dm.sel = cbind(1, )
+dm.sel = cbind(exper, exper2, educ, city)
 #... for the observed process.
-dm.obs = cbind(1, )
+dm.obs = cbind(age, age2, faminc, kids, educ)
 
 #My notes will have something on it. 
 
@@ -45,27 +67,125 @@ dm.obs = cbind(1, )
 resp.sel = as.logical(lfp)
 
 #TODO: Find a good response for the observed process. 
-resp.obs = hours
+resp.obs = wage
 
 #TODO: Write out the number of parameters for the observed and selection 
 #processes, not including the Tobit-2 parameters.
 
 npar.sel = ncol(dm.sel); npar.obs = ncol(dm.obs)
-  
+npar = npar.sel +1 + npar.obs + 1 + 2
+#Below is my implementation of the Tobit2 MLE, MLETobit2, from example 1. 
+#This takes inputs init, the inital value from where the parameter estimate is 
+#evaluated from, out, the responses of the observed model, sel, the responses 
+#of the selection model, deso, the design matrix for the observed model, less the 
+#first column, dess, the design matrix for the selection process less the first 
+#column, method, the optimisation method, and maxit, the maximum number of 
+#iterations, with default number 100.
+
+MLETobit2 = function(init, out, sel, deso, dess, beta_o_par = 0,
+                     method = "nlminb", maxit = 100){
+  #Converting the inputs out and sel into vectors.
+  out = as.vector(out); sel = as.vector(sel)
+  #Defining x1 and w1 as the design matrices of the observed and selection 
+  #processes respectively by adding back the missing column of 1's.
+  x1 = as.matrix(cbind(1, deso)); w1 = as.matrix(cbind(1, dess))
+  #Defining p and q as the number of columns of x1 and w1 respectively. 
+  p = ncol(x1); q = ncol(w1)
+  #Defining a function which evaluates the log-likelihood of the Tobit-2 model,
+  #loglik. This takes in as inputs a parameter vector, par. 
+  loglik = function(par){
+    #Reparametrising sigma and rho in our model, using an exponential and a 
+    #tanh link. 
+    sigma = exp(par[1]); rho = tanh(par[2]) 
+    #Defining our linear regression coefficients for the observed model, beta_o, 
+    #and that for the selection model, beta_s. 
+    #TODO: Reparametrise beta_o = beta_o.tilde
+    beta_o = par[c(3:(p+2))]; beta_s = par[(p+3):(p+q+2)]
+    #Reparametrisation if beta_o_par = 1
+    if(beta_o_par){
+      beta_o = beta_o/sigma
+    }
+    x_beta_o = x1%*%beta_o; w_beta_s = w1%*%beta_s
+    #Defining inds0 and inda1 as indicators corresponding to the selection 
+    #criterion, which can be seen in chapter 2. 
+    inds0 = (sel == 0); inds1 = (sel == 1)
+    #Evaluating the log-likelihood of the Tobit-2 model as given in Chapter 2. 
+    ll = sum(pnorm(-w_beta_s[inds0], log = T)) + 
+         sum(pnorm( (w_beta_s[inds1] + rho*(out[inds1] - x_beta_o[inds1])/sigma)/
+                      sqrt(1 - rho^2), log = T)) + 
+    #MODIFICATION: compressed the explicit evaluation of the normal component of
+    #the observed processes into the dnorm function, as the distribution is a
+    #N(x_beta_o, sigma^2) distributed random variable from proof (INSERT). 
+         sum(dnorm(out[inds1], mean = x_beta_o[inds1], sd = sigma, log = T))
+    #Returning the log-loss, which we will minimise using the optim commands. 
+    #This is because optim and nlminb are principally minimisation algorithms, 
+    #so returning the log-loss is more efficient here. 
+    return(-ll)
+  }
+  #Conditional to evaluate the optimal value using nlminb if specified
+  #(by default).
+  if(method == "nlminb"){ 
+    OPT = nlminb(init, loglik, control = list(iter.max = maxit))
+  } 
+  #Conditional to evaluate the optimal value using the optim() function
+  else{
+    #Using optim to 
+    OPT = optim(init, loglik, control = list(maxit = maxit), method = method)
+  }
+  #Storing the MLES in a vector, remembering to undo the links defined above. 
+  MLE = c(exp(OPT$par[1]), tanh(OPT$par[2]), OPT$par[-c(1,2)])
+  #Creating a vector of estimate names...
+  names(MLE) = c("sigma", "rho", "intercept", paste(paste("beta_o_hat[,", 1:(p-1), 
+    sep = "" ),"]", sep = ""), "intercept", paste(paste("beta_s_hat[,", 1:(q-1), 
+    sep = "" ),"]", sep = "")) 
+  #Storing all our outputs in the list outf.
+  outf = list(loglik = loglik, OPT = OPT, MLE = MLE)
+  #Returning outf as the function output. 
+  return(outf)
+}
+init0=c(3.10350,-0.13328,
+         -1.9537242,0.0284295,-0.0001151,0.4562471,0.4451424,
+         -4.120,0.1840,-0.002409,0.000005676,-0.4507,0.09533)
 #TODO: Find the MLEs, using MLETobit2 - MODIFICATION. 
-OPT = MLETobit2(init = rep(0, npar), )
+OPT0 = MLETobit2(init = rep(0, npar), out = resp.obs, sel = resp.sel, 
+                deso = dm.obs, dess = dm.sel, maxit = 1E4)
 
 #Returns the Tobit-2 MLEs. 
-OPT$OPT$par
+OPT0$MLE
+OPT0$OPT$objective
+OPT2 = MLETobit2(init = rep(1, npar), out = resp.obs, sel = resp.sel, 
+                deso = dm.obs, dess = dm.sel, maxit = 1E4)
 
-
+OPT2$MLE
+#Notice the MLEs change depending on the initial value AND the method - this 
+#indicates that the problem is not convex. This could be symptomatic of some
+#underlying issue with parameter redundancy. 
 #TODO: Analyse the MLEs - Perhaps find confidence intervals? 
+obsEq = wage ~ exper + I(exper^2) + educ + city
+selectEq = lfp ~ age + I(age^2) + faminc + kids + educ
 
+ssMLE = selection(selectEq, obsEq, data = dat, method = "ml")
+ssMLE
+
+ssMLE.2step = selection(selectEq, obsEq, data = dat, method = "2step")
+ssMLE.2step 
+
+HMLE = HeckmanCL(selectEq, obsEq, data = dat, start = coef(ssMLE))
+HMLE$loglik
+
+ssMLE.zero = selection(selectEq, obsEq, start = c(rep(0, 11), 0.5, 0.9), 
+                       data = dat)
+ssMLE.zero$maximum
+#Yep - no CIs for us here... 
+#Also - OH GOD WHAT AM I LOOKING AT. 
 ```
-
 
 ## Profile Likelihood
 ```{r}
+OPT = OPT0
+p = length(OPT$MLE)
+ML = OPT$OPT$objective
+MLE = OPT$MLE
 
 #Insert profile likelihood from example 1.
 #Create the function prof.lik to evaluate the profile likelihood MLE. 
@@ -101,12 +221,282 @@ prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb
       list(maxit = max.iter, reltol = 1E-5))$value + ML
   }
   #We return the exponential of the output since we used the log-likelihood.
-  #This returns the profile likelihood MLE. 
+  #This returns the profile likelihood. 
   return(exp(out))
 }
 
-#TODO: 
+#TODO: Plot the function values out. 
 ```
 
+## Profile Likelihood 
+
 ```{r}
+#HUH
+#HUH
+#HUH
+#HUHHHHHHHHHHHHH
+#Look at this again... 
+prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+                                         init = "zero", method = "nlminb"))
+curve(prof1, n = 100, from = 0.01, to = 1, ylab = "Profile Likelihood", xlab = 
+        expression(sigma))
+abline(v = OPT$MLE[1], col = "red", lwd = 2)
+
+
+#It... shouldn't blow up so much. Why???
+#Answer = It's extremely dependent on the starting point. OPT yields incredibly 
+#degenerate results but OPT2 yields decent-looking results. This clearly 
+#highlights the importance of the initial value when optimising - we cannot 
+#hope to get a proper profile likelihood with an inital point of zero, so we 
+#will change to the case where we optimised from the point at 1's in all 
+#co-ordinates. This yields far more well-behaved results, as we see below:
+################################################################################
+OPT = OPT2
+p = length(OPT$MLE)
+ML = OPT$OPT$objective
+MLE = OPT$MLE
+
+prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+                                         init = "MLE", method = "nlminb"))
+curve(prof1, n = 100, from = 4, to = 5, ylab = "Profile Likelihood", xlab = 
+        expression(sigma))
+abline(v = OPT$MLE[1], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
+                                          init = "MLE", method = "CG"))
+curve(prof2, n = 100, from = 0.9, to = 0.9999, ylab = "Profile Likelihood", xlab = 
+         expression(rho))
+abline(v = OPT$MLE[2], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE",
+                                         method = "nlminb"))
+curve(prof3, n = 100, from = -10, to = -9, ylab = "Profile Likelihood", 
+      xlab = expression(beta[0]))
+abline(v = OPT$MLE[3], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE",
+                                         method = "nlminb"))
+curve(prof4, n = 100, from = -0.1, to = 0.16, ylab = "Profile Likelihood", 
+      xlab = expression(beta[1]))
+abline(v = OPT$MLE[4], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE",
+                                         method = "nlminb"))
+curve(prof5, n = 100, from = -0.1, to = 0.1, ylab = "Profile Likelihood", 
+      xlab = expression(beta[2]))
+abline(v = OPT$MLE[5], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE",
+                                         method = "nlminb"))
+curve(prof6, n = 200, from = -0.002, to = 0.001, ylab = "Profile Likelihood", 
+      xlab = expression(beta[3]))
+abline(v = OPT$MLE[6], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof7 = Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE",
+                                         method = "nlminb"))
+curve(prof7, n = 100, from = -0.5, to = 0.5, ylab = "Profile Likelihood", 
+      xlab = expression(beta[4]))
+abline(v = OPT$MLE[7], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE",
+                                         method = "nlminb"))
+curve(prof8, n = 100, from = 0, to = 1, ylab = "Profile Likelihood", 
+      xlab = expression(beta[5]))
+abline(v = OPT$MLE[8], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE",
+                                         method = "nlminb"))
+curve(prof9, n = 100, from = -2, to = -1, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[0]))
+abline(v = OPT$MLE[9], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE",
+                                         method = "nlminb"))
+curve(prof10, n = 100, from = 0, to = 0.2, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[1]))
+abline(v = OPT$MLE[10], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE",
+                                         method = "nlminb"))
+curve(prof11, n = 100, from = -0.001, to = 0, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[2]))
+abline(v = OPT$MLE[11], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE",
+                                         method = "nlminb"))
+curve(prof12, n = 100, from = 0.14, to = 0.15, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[3]))
+abline(v = OPT$MLE[12], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE",
+                                         method = "nlminb"))
+curve(prof13, n = 100, from = 0.01, to = 0.03, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[4]))
+abline(v = OPT$MLE[13], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+#
+
+################################################################################
+
+#Problematic case... Weakness of profile-likelihood-based confidence intervals. 
+#Trying to propogate in this way eads to poor inferences. 
+intprof2 = Vectorize(function(par) prof2(par) - 0.147)
+curve(intprof2, n = 100, from = 0.9, to = .9999)
+abline(h = 0.147)
+LP2 = uniroot(f = intprof2, interval = c(0.9, 0.99))$root
+UP2 = uniroot(f = intprof2, interval = c(0.991, 0.996))$root
+confint2.proflik = tanh(c(LP2, UP2))
+confint2.proflik
+
+```
+
+## Applying the Hessian Method + Bootstrapped Hessian
+```{r}
+#Performing the procedure as described in Cole (2020), p. 
+#Evaluating the Hessian at the numerically-obtained MLE. 
+hess.model = -hessian(func = OPT$loglik, x = OPT$OPT$par)
+#Getting the Hessian's eigenvalues.
+eigen.vals = eigen(hess.model)$values
+#Getting the reference values as defined in Cole (2020) and in Chapter 5 of the 
+#Dissertation.
+ref.vals = abs(as.vector(eigen.vals))/max(abs(as.vector(eigen.vals)))
+#Getting sev as the sorted vector of reference values. 
+sev = sort(ref.vals)
+sev
+#Checking if the larges reference value is lower than the 0.001 threshold. 
+sev[1] < 0.001
+
+#In fact, sev[1] < 1E-12, indicating that this model is most likely actually 
+#true parameter-redundant.
+
+#Below is the implementation for the Bootstrap on the Hessian method taken 
+#directly from my Example 2. 
+
+#Defining the number of bootstrap samples, B, to be 1000. 
+B = 1E3
+n = nrow(dat)
+#Defining an empty vector, MLE.B, which will contain all of the bootstrapped
+#MLEs for all B = 1000 samples.
+MLE.B = matrix(0, ncol = length(MLE), nrow = B)
+#Defining a completely empty vector indHess, which will show the result of 
+#performing the above 
+indHess = vector()
+for (i in 1:B){
+  #Deciding which observation (i.e. index) from dat we will use to bootstrap,
+  #and using sample() to get the index to be bootstrapped over, ind.
+  ind = sample(1:n, replace = T)
+  #Using GHMLE() again to fit the model, just like for OPTPGWGH, except 
+  #only considering the inputs corresponding to observatoin ind.
+  OPTB = MLETobit2(init = rep(1, npar), out = resp.obs[ind], 
+                   sel = resp.sel[ind], deso = dm.obs[ind,], 
+                   dess = dm.sel[ind,], maxit = 1E4)
+  MLE.B[i, ] = c(exp(OPTB$OPT$par[1]), tanh(OPTB$OPT$par[2]), 
+                 OPTB$OPT$par[-c(1:2)])
+  #The following code is just the implementation from above of the Hessian 
+  #method - to avoid bloat, please refer to the comments from the preceeding
+  #section., 
+  #This was originally a bug, where it evaluated the hessian using the wrong 
+  #optimised output - I found it, and this is mentioned in the corresponding 
+  #RPub (https://rpubs.com/FJRubio/NRPNILung) as a disclaimer.
+  hessb = -hessian(OPTB$loglik, x = OPTB$OPT$par)
+  eigen.val.b = eigen(hessb)$values
+  ref.val.b = abs(as.vector(eigen.val.b))/abs(max(as.vector(eigen.val.b)))
+  sev.b = sort(ref.val.b)
+  indHess[i] = as.numeric(sev.b[1]<0.001)
+}
+#Getting the sample proportion of parameter-redundant numerical models as the 
+#mean of the indHess vector. 
+mean(indHess)
+
+#Running a for loop which creates numerical central 95% percentiles for each 
+#MLE using the quantile() function, and assigning it with the assign function()
+#to dynamically create variables confint"par number". 
+
+#Note this is done for all parameters instead of the above profile-confidence 
+#interval as this is purely from the bootstrapped sample. 
+
+for (i in 1:length(MLE)){
+  assign(paste("confint.boot.", i, sep = ""), 
+         quantile(MLE.B[, i], probs = c(0.025, 0.975)))
+}
+
+#The following is imported from Example 2, and is used to compare confidence 
+#intervals, against the ones we found above. The ones below are Bias Corrected- 
+#Accelerated confidence intervals, which are NOT central but cover a 95% region. 
+#This follows the methods introduced throughout DiCiccio and Efron (1996).
+
+#Defining n to be the number of observations(rows in the dat dataframe).
+n = nrow(dat)
+
+#Evaluating the Jackknife influence functions so we can evaluate a.hat.
+#The Jackknife is used to estimate the acceleration parameter, as defined in 
+#DiCiccio and Efron (1996) - we use the definition on page 201 as it does not
+#require any derivative or limit evaluations. 
+
+jackknives = matrix(nrow = n, ncol = length(MLE))
+#We do this iteratively. 
+#WARNING: This loop takes a long time to run - around 15-20 minutes. 
+#This is due to how the Jackknife is calculated.
+#Unfortunately, this means that there is nothing which can be done to remedy 
+#this problem, apart from getting a very powerful device. 
+
+for (i in 1:n){
+  #Get the MLEs for the Tobit-2 model, omitting the ith observation, and 
+  #storing this in the variable OPT_i. For more details see the above section
+  #where we evaluated all the MLEs in the regular case. 
+  OPT_i = MLETobit2(init = rep(1, npar), out = resp.obs[-i], 
+                    sel = resp.sel[-i], deso = dm.obs[-i, ], 
+                    dess = dm.sel[-i, ], maxit = 1E4)
+  #Getting the MLEs without i, as detailed above in the regular case. 
+  MLE_i = c(exp(OPTB$OPT$par[1]), tanh(OPTB$OPT$par[2]), 
+               OPTB$OPT$par[-c(1:2)])
+  jackknives[i, ] = (n-1)*(MLE - MLE_i)
+}
+
+#Create the function BC_a.ci, which takes in parameters 
+#B, the number of bootstrap samples, MLE, the MLE VECTOR of the data, 
+#ind, the index determining which MLE to create the confidence interval for,  
+#alpha, the significance level of the confidence interval, booted.MLes, the 
+#matrix of bootstrapped MLEs, and jackknives, the matrix of jackknife influence
+#functions, as defined above. 
+
+BC_a.ci = function(B, MLE, ind, alpha, booted.MLEs, jackknives){
+  #Evaluate z_0.hat as in DiCiccio and Efron (1996). 
+  z_0.hat = qnorm(1/B*sum(booted.MLEs[,ind] < MLE[ind]))
+  #Defining a.hat as in DiCaccio and Efron (1996), and evaluating the lower 
+  #bound (LB) and upper bound (UB) of the BC_a confidence interval.
+  a.hat = 1/6*sum(jackknives[,ind]^3)/(sum(jackknives[,ind]^2)^1.5)
+  LB = quantile(x = booted.MLEs[,ind], probs = pnorm(z_0.hat + (z_0.hat + 
+          qnorm(alpha/2 )/(1 - a.hat*(z_0.hat + qnorm(alpha/2) ) ) ) ) )
+  UB = quantile(x = booted.MLEs[,ind], probs = pnorm(z_0.hat + (z_0.hat + 
+          qnorm(1 - alpha/2 )/(1 - a.hat*(z_0.hat + qnorm(1-alpha/2) ) ) ) ) )
+  #Defining the variable bootstrap.CI to be our Bias Corrected-Accelerated CI.
+  bootstrap.CI = c(LB, UB)
+  #Returning bootstrap.CI. 
+  return(bootstrap.CI)
+}
+
+#LIMITATION - Assumptions. 
+
+#Iterates over all the parameters. 
+for (i in 1:length(MLE)){
+  #Runs BC_a.ci(), iterating over the iterate, i, for all parameters. 
+  #Then, parses this to the assign() function along with paste(), in order 
+  #to dynamically store my outputs as confint.bc_a"parameter no."
+  assign(paste("confint.bc_a", i, sep = ""), BC_a.ci(B, MLE, i, 0.05, MLE.B, 
+                                                    jackknives))
+}
+
 ```

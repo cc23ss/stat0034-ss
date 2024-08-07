@@ -60,9 +60,9 @@ outcomeEq<-wage ~ exper + I(exper^2) + educ + city
 #ssMLElocal<-selection(selectEq, outcomeEq, data = Mroz87, maxMethod = "BHHH", iterlim = 500)
 #summary(ssMLElocal) 
 
-#ssMLE0<-selection(selectEq, outcomeEq, data = Mroz87,
-#                  start = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.9),
-#                  maxMethod = "SANN", parscale = 0.001)
+ssMLE0<-selection(selectEq, outcomeEq, data = Mroz87,
+                  start = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0.9),
+                  maxMethod = "SANN", parscale = 0.001)
 #summary(ssMLE0)
 #ssMLE<-selection(selectEq, outcomeEq, data = Mroz87,
 #                 start = coef(ssMLE0))
@@ -71,7 +71,7 @@ outcomeEq<-wage ~ exper + I(exper^2) + educ + city
 #coef(ssMLElocal)
 #coef(ssMLE)
 #MLE
-
+detach(Mroz87)
 
 
 

@@ -1,0 +1,244 @@
+---
+title: "Example 4"
+output: html_document
+date: "2024-07-17"
+bibliography:
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Numerical Simulation
+
+```{r}
+
+#We'll import the package mvtnorm in order to simulate the errors between 
+#the errors. This is really important since we need to capture the dependence 
+#structure between the noise terms. 
+
+library(mvtnorm)
+
+#Setting a seed for replicability
+set.seed(1111)
+
+#We will need to generate two sets of covariates; One set for the observed 
+#process, and one set for the selection process. For each, we'll generate 
+#two covariates, so that we have a simple but non-trivial model for which to 
+#discuss and highlight our desired properties. Similarly, we will need to 
+#generate two sets of responses.
+
+#Defining the hypothetical sample size, n
+
+#e.g.
+n = 500
+
+#Generating the errors. 
+#We define rho here to be the correlation coefficient. 
+sigma = 3; rho = 0.5
+
+cov.eps = matrix(c(1, rho*sigma, rho*sigma, sigma^2), nrow = 2, ncol = 2)
+
+eps = rmvnorm(n, sigma = cov.eps)
+eps.sel = eps[,1]
+eps.obs = eps[,2]
+
+#Generating some covariates and responses for the selection process. We will 
+#again opt, for simplicity, to generate normally-distributed data.
+
+cov.x = matrix(c(2.5, 0, 0, 1), nrow= 2, ncol = 2)
+dm.obs = rmvnorm(n, sigma = cov.x)
+beta = c(-1, 1, 4)
+x.obs1 = dm.obs[,1]
+x.obs2 = dm.obs[,2]
+y.obs = cbind(1, dm.obs) %*% beta + eps.obs
+
+#Generating some covariates and responses for the selection process. We will 
+#opt, for simplicity, to generate normally-distributed data. 
+  
+x.sel1 = rnorm(n, 0, 0.5)
+x.sel2 = rnorm(n, 0, 2)
+dm.sel = cbind(x.sel1, x.sel2)
+alpha = c(1.5, 2, 3)
+
+y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
+
+#Defining the select vector as the indicator (Recall: True = 1, False = 0) 
+#function for all observations satisfying the observation criterion y.sel > 0.
+select = y.sel > 0
+
+#We provide the proportion of "missing samples" here as the mean of the select
+#vector. Overall, it seems reasonable to assume 50%-ish missingness. 
+mean(select)
+```
+
+## Applying the Tobit-2 Model
+```{r}
+#Defining our Tobit-2 Model here, taken from example 1.
+#This takes inputs init, the inital value from where the parameter estimate is 
+#evaluated from, out, the responses of the observed model, sel, the responses 
+#of the selection model, deso, the design matrix for the observed model, less the 
+#first column, dess, the design matrix for the selection process less the first 
+#column, method, the optimisation method, and maxit, the maximum number of 
+#iterations, with default number 100.
+MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
+                     method = "nlminb", maxit = 100){
+  #Converting the inputs out and sel into vectors.
+  out = as.vector(out); sel = as.vector(sel)
+  #Defining x1 and w1 as the design matrices of the observed and selection 
+  #processes respectively by adding back the missing column of 1's.
+  x1 = as.matrix(cbind(1, deso)); w1 = as.matrix(cbind(1, dess))
+  #Defining p and q as the number of columns of x1 and w1 respectively. 
+  p = ncol(x1); q = ncol(w1)
+  #Defining a function which evaluates the log-likelihood of the Tobit-2 model,
+  #loglik. This takes in as inputs a parameter vector, par. 
+  loglik = function(par){
+    #Reparametrising sigma and rho in our model, using an exponential and a 
+    #tanh link. 
+    sigma = exp(par[1]); rho = tanh(par[2]) 
+    #Defining our linear regression coefficients for the observed model, beta, 
+    #and that for the selection model, alpha. 
+    #TODO: Reparametrise beta = beta.tilde
+    beta = par[c(3:(p+2))]; alpha = par[(p+3):(p+q+2)]
+    #Reparametrisation if beta_par = 1
+    if(beta_par){
+      beta = beta/sigma
+    }
+    x_beta = x1%*%beta; w_alpha = w1%*%alpha
+    #Defining inds0 and inda1 as indicators corresponding to the selection 
+    #criterion, which can be seen in chapter 2. 
+    inds0 = (sel == 0); inds1 = (sel == 1)
+    #Evaluating the log-likelihood of the Tobit-2 model as given in Chapter 2. 
+    ll = sum(pnorm(-w_alpha[inds0], log = T)) + 
+         sum(pnorm( (w_alpha[inds1] + rho*(out[inds1] - x_beta[inds1])/sigma)/
+                      sqrt(1 - rho^2), log = T)) + 
+    #MODIFICATION: compressed the explicit evaluation of the normal component of
+    #the observed processes into the dnorm function, as the distribution is a
+    #N(x_beta, sigma^2) distributed random variable from proof (INSERT). 
+         sum(dnorm(out[inds1], mean = x_beta[inds1], sd = sigma, log = T))
+    #Returning the log-loss, which we will minimise using the optim commands. 
+    #This is because optim and nlminb are principally minimisation algorithms, 
+    #so returning the log-loss is more efficient here. 
+    return(-ll)
+  }
+  #Conditional to evaluate the optimal value using nlminb if specified
+  #(by default).
+  if(method == "nlminb"){ 
+    OPT = nlminb(init, loglik, control = list(iter.max = maxit))
+  } 
+  #Conditional to evaluate the optimal value using the optim() function
+  else{
+    #Using optim to 
+    OPT = optim(init, loglik, control = list(maxit = maxit), method = method)
+  }
+  #Storing the MLES in a vector, remembering to undo the links defined above. 
+  MLE = c(exp(OPT$par[1]), tanh(OPT$par[2]), OPT$par[-c(1,2)])
+  #Creating a vector of estimate names...
+  names(MLE) = c("sigma", "rho", "intercept", paste(paste("beta_hat[,", 1:(p-1), 
+    sep = "" ),"]", sep = ""), "intercept", paste(paste("alpha_hat[,", 1:(q-1), 
+    sep = "" ),"]", sep = "")) 
+  #Storing all our outputs in the list outf.
+  outf = list(loglik = loglik, OPT = OPT, MLE = MLE)
+  #Returning outf as the function output. 
+  return(outf)
+}
+npar = 8
+OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
+          dess = dm.sel)
+MLE = OPT$MLE
+MLE
+```
+## A Monte Carlo Approach to the above questions
+
+```{r}
+#We're going to report the average bias of each parameter, for both questions. 
+#Creating three matrices for the three biases we evaluated above. 
+n.samples = 400
+bias.true = matrix(NA, nrow = n.samples, ncol = length(c(beta, alpha)))
+bias.linreg.mat = matrix(NA, nrow = n.samples, 
+                         ncol = length(beta))
+bias.misspec.obs.mat = matrix(NA, nrow = n.samples, ncol = length(beta))
+bias.misspec.sel.mat = matrix(NA, nrow = n.samples, ncol = length(alpha)-1)
+
+for (i in 1:n.samples){
+  #For replicability we set the seed here to be the dummy variable i. 
+  set.seed(i)
+
+  #We perform the same procedure as in chunk 1. 
+  eps = rmvnorm(n, sigma = cov.eps)
+  eps.sel = eps[,1]
+  eps.obs = eps[,2]
+  
+  #Generating some covariates and responses for the selection process. We will 
+  #again opt, for simplicity, to generate normally-distributed data.
+  
+  dm.obs = rmvnorm(n, sigma = cov.x)
+  x.obs1 = dm.obs[,1]
+  x.obs2 = dm.obs[,2]
+  y.obs = cbind(1, dm.obs) %*% beta + eps.obs
+  
+  #Generating some covariates and responses for the selection process. We will 
+  #opt, for simplicity, to generate normally-distributed data. 
+    
+  x.sel1 = rnorm(n, 0, 0.5)
+  x.sel2 = rnorm(n, 0, 2)
+  dm.sel = cbind(x.sel1, x.sel2)
+
+  y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
+  select = y.sel > 0
+
+  OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
+          dess = dm.sel, maxit = 1E3)
+  MLE = OPT$MLE
+  bias.true[i, ] = as.numeric(MLE[-c(1:2)] - c(beta, alpha))
+  
+  linreg = lm(y.obs ~ x.obs1 + x.obs2)
+  bias.linreg.mat[i, ] = as.numeric(coef(linreg) - beta)
+  
+  dm.sel.misspec = x.sel1
+  OPT.misspec = MLETobit2(rep(0, npar-1), out = y.obs, sel = select, 
+                          deso = dm.obs, dess = dm.sel.misspec)
+  MLE.misspec = OPT.misspec$MLE
+  bias.misspec.obs.mat[i, ] = MLE.misspec[c(3:5)] - beta
+  bias.misspec.sel.mat[i, ] = MLE.misspec[c(6:7)] - alpha[-3]
+}
+
+colMeans(abs(bias.true))
+colMeans(abs(bias.linreg.mat))
+colMeans(abs(bias.misspec.obs.mat))
+colMeans(abs(bias.misspec.sel.mat))
+```
+
+## Comparison to Linear and Logistic Regression
+
+```{r}
+#Assume the regression coefficients are -1, 1, 3.
+lin.pred.coeffs = c(-1, 1, 3)
+coeff.lm.true = matrix(NA, ncol = 3, nrow = n)
+coeff.lm.misspec = matrix(NA, ncol = 2, nrow = n)
+coeff.logit.true = matrix(NA, ncol = 3, nrow = n)
+coeff.logit.misspec = matrix(NA, ncol = 2, nrow = n)
+for (i in 1:n){
+  set.seed(i)
+  x = rmvnorm(n, rep(0, 2))
+  y = cbind(1, x) %*% lin.pred.coeffs + rnorm(n)
+  coeff.lm.true[i,] = as.numeric(coef(lm(y ~ x[,1] + x[, 2])))
+  coeff.lm.misspec[i, ] = as.numeric(coef(lm(y ~ x[,1])))
+  
+  y2 = rbinom(n, 1, prob = pnorm(q = cbind(1, x) %*% lin.pred.coeffs))
+  
+  coeff.logit.true[i, ] = as.numeric(coef(glm(y2 ~ x[,1] + x[,2], family = 
+                                                binomial(link = "probit"))))
+  coeff.logit.misspec[i, ] = as.numeric(coef(glm(y2 ~ x[,1], family = binomial(link = 
+                                                "probit"))))
+}
+
+colMeans(coeff.lm.true)
+colMeans(coeff.lm.misspec)
+colMeans(coeff.logit.true)
+colMeans(coeff.logit.misspec)
+```
+#Bibliography
+
+
+

@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Example 1 - Tobit-2 Model"
 output: html_document
 date: "2024-06-02"
 ---
@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Formulation of the Tobit-2 log-likelihood (Ch. 2)
 
 ```{r}
-#The following implementation was taken from Rubio (2024)
+#The following implementation was taken from Rubio (2024).
 #ADDITION: setting the seed for replicability. 
 set.seed(1111)
 #Importing the sampleSelection package - This is the focal package of my 
@@ -29,8 +29,8 @@ library(ssmodels)
 #Chapter 2 of my dissertation.
 
 #This takes inputs init, the inital value from where the parameter estimate is 
-#evaluated from, out, the responses of the observed model, sel, the responses 
-#of the selection model, deso, the design matrix for the observed model, less the 
+#evaluated from, out, the responses of the observable model, sel, the responses 
+#of the selection model, deso, the design matrix for the observable model, less the 
 #first column, dess, the design matrix for the selection process less the first 
 #column, method, the optimisation method, and maxit, the maximum number of 
 #iterations, with default number 100.
@@ -39,7 +39,7 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
                      method = "nlminb", maxit = 100){
   #Converting the inputs out and sel into vectors.
   out = as.vector(out); sel = as.vector(sel)
-  #Defining x1 and w1 as the design matrices of the observed and selection 
+  #Defining x1 and w1 as the design matrices of the observable and selection 
   #processes respectively by adding back the missing column of 1's.
   x1 = as.matrix(cbind(1, deso)); w1 = as.matrix(cbind(1, dess))
   #Defining p and q as the number of columns of x1 and w1 respectively. 
@@ -50,14 +50,16 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
     #Reparametrising sigma and rho in our model, using an exponential and a 
     #tanh link. 
     sigma = exp(par[1]); rho = tanh(par[2]) 
-    #Defining our linear regression coefficients for the observed model, beta, 
-    #and that for the selection model, alpha. 
+    #Defining our linear regression coefficients for the observable model, beta, 
+    #and that for the selection model, alpha. (Modified from Rubio(2023)).
     #TODO: Reparametrise beta = beta.tilde
     beta = par[c(3:(p+2))]; alpha = par[(p+3):(p+q+2)]
     #Reparametrisation if beta_par = 1
     if(beta_par){
       beta = beta/sigma
     }
+    #Defining the linear predictors of the observable process (x_beta) and the 
+    #the selection process (w_alpha). 
     x_beta = x1%*%beta; w_alpha = w1%*%alpha
     #Defining inds0 and inda1 as indicators corresponding to the selection 
     #criterion, which can be seen in chapter 2. 
@@ -67,7 +69,7 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
          sum(pnorm( (w_alpha[inds1] + rho*(out[inds1] - x_beta[inds1])/sigma)/
                       sqrt(1 - rho^2), log = T)) + 
     #MODIFICATION: compressed the explicit evaluation of the normal component of
-    #the observed processes into the dnorm function, as the distribution is a
+    #the observable processes into the dnorm function, as the distribution is a
     #N(x_beta, sigma^2) distributed random variable from proof (INSERT). 
          sum(dnorm(out[inds1], mean = x_beta[inds1], sd = sigma, log = T))
     #Returning the log-loss, which we will minimise using the optim commands. 
@@ -118,7 +120,7 @@ head(MEPS2001)
 
 #Defining design matrices (less the intercept column). 
 #TODO: Change influential variables? 
-#... for the observed model.
+#... for the observable model.
 dm.obs = cbind(age, female, educ, blhisp, totchr, ins)
 boxplot(dm.obs[, c(1, 3, 5)])
 pairs(dm.obs[, c(1, 3, 5)])
@@ -133,11 +135,6 @@ summary(dm.sel1)
 #TODO: EDA
 #dm.sel2 = cbind(income, ..., )
 #... for the selection model, with no overlapping covariates
-dm.sel2 = MEPS2001[, 1]
-
-#TODO: Model Selection
-#How? 
-
 
 #Selection response, a binary (0/1) variable which acts as the indicator 
 #function corresponding to the latent variable for positive ambulatory 
@@ -145,7 +142,7 @@ dm.sel2 = MEPS2001[, 1]
 
 sel = as.logical(dambexp)
 
-#Observed responses, corresponding to log ambulatory expenditures, lnambx.
+#observed responses, corresponding to log ambulatory expenditures, lnambx.
 y = lnambx
 
 #Finding the MLE of the Tobit-2 likelihood, with unscaled parameter. 
@@ -169,99 +166,169 @@ MLE2
 log(abs(MLE-MLE2), 10)
 
 #Comparing this to other optimisation algorithms. 
+#Defining two equation objects, selectEq and obsEq1, which define the 
+#relationship between the response and the covariates for the selection and
+#observable process respectively. 
 selectEq = dambexp ~ age + female + educ + blhisp + totchr + ins + income
 obsEq1 = update(selectEq, . - dambexp + y ~ . - income)
 
+#Using the HeckmanCL function from the ssmodels package to perform MLE on the 
+#data, repeating what we did above with this function. 
 HMLE = HeckmanCL(selectEq, obsEq1, data = MEPS2001)
 summary(HMLE)
 
-outcomeEq = lnambx ~ age + female + educ + blhisp + totchr + ins
 
 #TODO: Second round. 
-ssMLE = selection(selectEq, outcomeEq)
+#Using the 
+ssMLE = selection(selectEq, obsEq1)
 summary(ssMLE)
 
-#Below is some code taken from the MLETobit2 function, in order to do a study 
-#on the effects of changing the correlation coeficient, rho. 
-#As this was taken from the MLETobit2 function, comments will be more sparing. 
-#In general, the parameters will be replaced by the corresponding parameters, 
-#with ".test" appended onto them, e.g. out -> out.test. The replacements
-#are done using the corresponding MLEs and inputs from example 1, above. 
-#Where there are differences, comments will highlight them. 
-out.test = as.vector(y); sel.test = as.vector(sel)
-x1.test = as.matrix(cbind(1, dm.obs)); w1.test = as.matrix(cbind(1, dm.sel1))
-p.test = ncol(x1.test); q.test = ncol(w1.test)
-#Here, we only apply the link to sigma.test, as we will iterate over rho, and 
-#we evaluate the Tobit-2 log-likelihood within the range [-1, 1]. 
-sigma.test = MLE[1]
-beta.test = MLE[c(3:(p.test+2))]; alpha.test = MLE[(p.test+3):(p.test+q.test+2)]
-#We'll opt to not perform the reparametrisation of beta as our main focus is on
-#rho. 
-x_beta.test = x1.test%*%beta.test; w_alpha.test = w1.test%*%alpha.test
-inds0.test = (sel.test == 0); inds1.test = (sel.test == 1)
-#Define here the number of steps to iterate over, in our case, 500 was deemed 
-#sufficiently granular. 
-no.steps = 500
-#Define the vector loglik.Tobit2 to store our log-likelihoods in.
-loglik.Tobit2 = rep(NA, no.steps)
-#Define an indexing dummy variable, i, to store our log-likelihoods within 
-#loglik.Tobit2
-i = 1
-#Initiate a for loop for rho in [-1, 1], iterating over seq(0,1, 
-#length.out = no.steps).
+ssMLE.2step = selection(selectEq, obsEq1, data = MEPS2001, method = "2step")
+ssMLE.2step
+ssMLE
+#Comparing the two, they do appear to diverge a lot actually. This was not 
+#expected - follow up?
 
-#TODO: Check this again.
-for (rho in seq(-1, 1, length.out = no.steps)){
-  #Evaluate the log-likelihood for the particular rho, ceteris paribus at the 
-  #MLEs. 
-  ll = sum(pnorm(-w_alpha.test[inds0.test], log = T)) + 
-       sum(pnorm((w_alpha.test[inds1.test] + rho*(out.test[inds1.test] - 
-            x_beta.test[inds1.test])/sigma.test)/sqrt(1 - rho^2), log = T)) + 
-       sum(dnorm(out.test[inds1.test], mean = x_beta.test[inds1.test], 
-                 sd = sigma.test, log = T))
-  #Returning the log-loss, which is the objective we seek to minimise. 
-  loglik.Tobit2[i] = ll
-  #Incrementing the dummy variable by 1.
-  i=i+1
+#TODO: Variable Selection 
+
+#Naive Variable Selection
+#We use the AIC to perform stepwise variable selection.
+inds.to.check.obs = c(1:ncol(dm.obs))
+inds.to.check.sel = c(1:ncol(dm.sel1))
+best.inds.obs = c()
+best.inds.sel = c()
+AICs.over.models = rep(NA, length(inds.to.check.obs)+length(inds.to.check.sel))
+#Going from zero covariates considered to all covariates, which is represented 
+#by the while condition
+j = 0
+best.models = list(NA)
+total.coeff.no = length(inds.to.check.obs) + length(inds.to.check.sel)
+while(j < total.coeff.no){  
+  #Iterating over every covariate in the two models, using the for loop and the
+  #iterable inside.
+  AIC = rep(NA, length(c(inds.to.check.obs, inds.to.check.sel)))
+  for(i in 1:length(AIC)){
+    #Making a vector called AIC to store our AICs. 
+    #A dual conditional ifelse in order to evaluate the AIC properly, since we 
+    #combined the vectors of observable and selection models into one iterable. 
+    if(i <= length(inds.to.check.obs)){
+      #Evaluating the AIC. 
+      dummy = 2*MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = 
+        dm.obs[ ,c(inds.to.check.obs[i], best.inds.obs)], 
+        dess = dm.sel1[,best.inds.sel])$OPT$objective +
+        2*(length(c(best.inds.obs, best.inds.sel))+1+2)
+    }
+    else{
+      #Evaluating the AIC again directly. 
+      dummy = 2*MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = 
+        dm.obs[ ,best.inds.obs], 
+        dess = dm.sel1[,c(inds.to.check.sel[i-length(inds.to.check.obs)],
+                          best.inds.sel)])$OPT$objective +
+        2*(length(c(best.inds.obs, best.inds.sel))+1+2)
+    }
+    AIC[i] = dummy
+  }
+  #Getting the best of the AICs using the max() command, and storing this in the
+  #variable best.AIC
+  best.AIC = max(AIC)
+  #Getting the index corresponding to the best AIC using the which.max() command
+  #and storing this inthe variable best.ind
+  best.ind = which.max(AIC)
+  AICs.over.models[j] = best.AIC
+  #Using an if-else conditional pair to store the best indices for each process.
+  if(best.ind <= length(inds.to.check.obs)){
+    #Concatenating
+    best.inds.obs = c(best.inds.obs, inds.to.check.obs[best.ind])
+    inds.to.check.obs = inds.to.check.obs[-best.ind]
+  }
+  else{
+    best.inds.sel = c(best.inds.sel, 
+                      inds.to.check.sel[i-length(inds.to.check.obs)])
+    inds.to.check.sel = inds.to.check.sel[-(best.ind-length(inds.to.check.obs))]
+  }
+  best.models = c(best.models, list(best.inds.obs, best.inds.sel))
+  j = j+1
 }
+# #Below is some code taken from the MLETobit2 function, in order to do a study 
+# #on the effects of changing the correlation coeficient, rho. 
+# #As this was taken from the MLETobit2 function, comments will be more sparing. 
+# #In general, the parameters will be replaced by the corresponding parameters, 
+# #with ".test" appended onto them, e.g. out -> out.test. The replacements
+# #are done using the corresponding MLEs and inputs from example 1, above. 
+# #Where there are differences, comments will highlight them. 
+# out.test = as.vector(y); sel.test = as.vector(sel)
+# x1.test = as.matrix(cbind(1, dm.obs)); w1.test = as.matrix(cbind(1, dm.sel1))
+# p.test = ncol(x1.test); q.test = ncol(w1.test)
+# #Here, we only apply the link to sigma.test, as we will iterate over rho, and 
+# #we evaluate the Tobit-2 log-likelihood within the range [-1, 1]. 
+# sigma.test = MLE[1]
+# beta.test = MLE[c(3:(p.test+2))]; alpha.test = MLE[(p.test+3):(p.test+q.test+2)]
+# #We'll opt to not perform the reparametrisation of beta as our main focus is on
+# #rho. 
+# x_beta.test = x1.test%*%beta.test; w_alpha.test = w1.test%*%alpha.test
+# inds0.test = (sel.test == 0); inds1.test = (sel.test == 1)
+# #Define here the number of steps to iterate over, in our case, 500 was deemed 
+# #sufficiently granular. 
+# no.steps = 500
+# #Define the vector loglik.Tobit2 to store our log-likelihoods in.
+# loglik.Tobit2 = rep(NA, no.steps)
+# #Define an indexing dummy variable, i, to store our log-likelihoods within 
+# #loglik.Tobit2
+# i = 1
+# #Initiate a for loop for rho in [-1, 1], iterating over seq(0,1, 
+# #length.out = no.steps).
 
-ll.Tobit2.rho = function(rho){
-  ll = sum(pnorm(-w_alpha.test[inds0.test], log = T)) + 
-       sum(pnorm((w_alpha.test[inds1.test] + rho*(out.test[inds1.test] - 
-            x_beta.test[inds1.test])/sigma.test)/sqrt(1 - rho^2), log = T)) + 
-       sum(dnorm(out.test[inds1.test], mean = x_beta.test[inds1.test], 
-                 sd = sigma.test, log = T))
-  return(ll)
-}
-
-loglik.Tobit2
-#Plotting our results here. 
-#Firstly we compare our results against the optimisation algorithm as a check - 
-#we find the standardised absolute distance between the two. 
-#Note we add the objective of the optimisation step, OPT,
-#as the objective there is the negative of the log-likelihood. 
-abs((max(loglik.Tobit2) + OPT$OPT$objective)/OPT$OPT$objective)
-#Very small difference - seems that 
-
-#Try to do beta/sigma reparametrisation. 
-
-#Relative likelihood
-plot(loglik.Tobit2, x = seq(-1, 1, length.out = no.steps), xlim = c(-1, 1),
-     xlab = expression(rho), ylab = "Log-likelihood", type = "l")
-#For illustrative purposes, we include a line and legend representing the 
-#original MLE for rho below, in red. 
-abline(v = abs(MLE[2]), col = "red")
-legend(x = "bottomleft", legend = c("MLE"), col = c("red"), pch = 16)
-
-#Think about this again.
-thing = Vectorize(function(par) ll.Tobit2.rho(par))
-curve(thing, c(-1, 1), n = 500)
-#NOTE: This seems really flat - is this actually correct? 
-#nah.
+# #TODO: Check this again.
+# for (rho in seq(-1, 1, length.out = no.steps)){
+#   #Evaluate the log-likelihood for the particular rho, ceteris paribus at the
+#   #MLEs.
+#   ll = sum(pnorm(-w_alpha.test[inds0.test], log = T)) +
+#        sum(pnorm((w_alpha.test[inds1.test] + rho*(out.test[inds1.test] -
+#             x_beta.test[inds1.test])/sigma.test)/sqrt(1 - rho^2), log = T)) +
+#        sum(dnorm(out.test[inds1.test], mean = x_beta.test[inds1.test],
+#                  sd = sigma.test, log = T))
+#   #Returning the log-loss, which is the objective we seek to minimise.
+#   loglik.Tobit2[i] = ll
+#   #Incrementing the dummy variable by 1.
+#   i=i+1
+# }
+# 
+# ll.Tobit2.rho = function(rho){
+#   ll = sum(pnorm(-w_alpha.test[inds0.test], log = T)) +
+#        sum(pnorm((w_alpha.test[inds1.test] + rho*(out.test[inds1.test] -
+#             x_beta.test[inds1.test])/sigma.test)/sqrt(1 - rho^2), log = T)) +
+#        sum(dnorm(out.test[inds1.test], mean = x_beta.test[inds1.test],
+#                  sd = sigma.test, log = T))
+#   return(ll)
+# }
+# 
+# loglik.Tobit2
+# #Plotting our results here.
+# #Firstly we compare our results against the optimisation algorithm as a check -
+# #we find the standardised absolute distance between the two.
+# #Note we add the objective of the optimisation step, OPT,
+# #as the objective there is the negative of the log-likelihood.
+# abs((max(loglik.Tobit2) + OPT$OPT$objective)/OPT$OPT$objective)
+# #Very small difference - seems that
+# 
+# #Try to do beta/sigma reparametrisation.
+# 
+# #Relative likelihood
+# plot(loglik.Tobit2, x = seq(-0.9, 0.9, length.out = no.steps), xlim = c(-1, 1),
+#      xlab = expression(rho), ylab = "Log-likelihood", type = "l")
+# #For illustrative purposes, we include a line and legend representing the
+# #original MLE for rho below, in red.
+# abline(v = abs(MLE[2]), col = "red")
+# legend(x = "bottomleft", legend = c("MLE"), col = c("red"), pch = 16)
+# 
+# #Think about this again.
+# thing = Vectorize(function(par) ll.Tobit2.rho(par))
+# curve(thing, c(-1, 1), n = 500)
+# #NOTE: This seems really flat - is this actually correct?
+# #nah.
 ```
 ## Applying the profile likelihood
 ```{r}
-po = ncol(dm.obs); ps = ncol(dm.sel2)
 
 p = length(MLE)
 ML = OPT$OPT$objective
@@ -292,14 +359,14 @@ prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb
   #MODIFICATION - Add a conditional statement for any non-nlminb method 
   #supported in optim. 
   else{
-    #Evauate the output out as the negative of the optim() minimisation output
+    #Evaluate the output out as the negative of the optim() minimisation output
     #to get a maximum estimate.
     out = -optim(par = OPT$OPT$par[-ind]*rep(init == "MLE", 
       length(OPT$OPT$par[-ind])), fn = tempf, method = method, control = 
       list(maxit = max.iter, reltol = 1E-5))$value + ML
   }
   #We return the exponential of the output since we used the log-likelihood.
-  #This returns the profile likelihood MLE. 
+  #This returns the profile likelihood. 
   return(exp(out))
 }
 
@@ -376,8 +443,4 @@ UP = uniroot(f = intprof2, interval = c(0.1,0.2))$root
 #Inverting the tanh link for rho to get a 0.147-profile likelihood confidence
 #interval.
 tanh(c(LP, UP))
-
-
-#Detach the MEPS2001 dataset. 
-detach(MEPS2001)
 ```
