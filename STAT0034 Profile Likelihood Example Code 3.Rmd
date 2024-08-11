@@ -22,12 +22,9 @@ library(sampleSelection)
 library(ssmrob)
 library(ssmodels)
 
-#Importing packages from example 2 here to apply the Hessian method. 
-library(knitr)
+#Importing packages here to apply the Hessian method. 
 library(numDeriv)
-library(survival)
 library(flexsurv)
-library(devtools)
 ```
 
 ## Exploratory Data Analysis
