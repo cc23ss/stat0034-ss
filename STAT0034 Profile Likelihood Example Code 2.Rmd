@@ -22,58 +22,30 @@ library(mvtnorm)
 #Setting a seed for replicability
 set.seed(1111)
 
-#We will need to generate two sets of covariates; One set for the observed 
-#process, and one set for the selection process. For each, we'll generate 
-#two covariates, so that we have a simple but non-trivial model for which to 
-#discuss and highlight our desired properties. Similarly, we will need to 
-#generate two sets of responses.
-
-#Defining the hypothetical sample size, n
-
-#e.g.
+#We define all the invariant true parameter values here. 
+#Defining the hypothetical sample size, n, for all our samples
 n = 500
 
 #Generating the errors. 
 #We define rho here to be the correlation coefficient. 
 sigma = 3; rho = 0.5
-
 cov.eps = matrix(c(1, rho*sigma, rho*sigma, sigma^2), nrow = 2, ncol = 2)
-
-eps = rmvnorm(n, sigma = cov.eps)
-eps.sel = eps[,1]
-eps.obs = eps[,2]
 
 #Generating some covariates and responses for the selection process. We will 
 #again opt, for simplicity, to generate normally-distributed data.
 
 cov.x = matrix(c(2.5, 0, 0, 1), nrow= 2, ncol = 2)
-dm.obs = rmvnorm(n, sigma = cov.x)
-beta = c(-1, 1, 4)
-x.obs1 = dm.obs[,1]
-x.obs2 = dm.obs[,2]
-y.obs = cbind(1, dm.obs) %*% beta + eps.obs
 
-#Generating some covariates and responses for the selection process. We will 
-#opt, for simplicity, to generate normally-distributed data. 
-  
-x.sel1 = rnorm(n, 0, 0.5)
-x.sel2 = rnorm(n, 0, 2)
-dm.sel = cbind(x.sel1, x.sel2)
+#Defining beta and alpha as in Chapter 2 of my dissertation. 
+beta = c(-1, 1, 4)
 alpha = c(1.5, 2, 3)
 
-y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
-
-#Defining the select vector as the indicator (Recall: True = 1, False = 0) 
-#function for all observations satisfying the observation criterion y.sel > 0.
-select = y.sel > 0
-
-#We provide the proportion of "missing samples" here as the mean of the select
-#vector. Overall, it seems reasonable to assume 50%-ish missingness. 
-mean(select)
 ```
 
 ## Applying the Tobit-2 Model
 ```{r}
+#Code from example 1. 
+
 #Defining our Tobit-2 Model here, taken from example 1.
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observed model, sel, the responses 
@@ -143,29 +115,42 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
   return(outf)
 }
 npar = 8
-OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
-          dess = dm.sel)
-MLE = OPT$MLE
-MLE
+
 ```
-## A Monte Carlo Approach to the above questions
+## A Monte Carlo Approach
 
 ```{r}
-#We're going to report the average bias of each parameter, for both questions. 
-#Creating three matrices for the three biases we evaluated above. 
-n.samples = 400
-bias.true = matrix(NA, nrow = n.samples, ncol = length(c(beta, alpha)))
-bias.linreg.mat = matrix(NA, nrow = n.samples, 
-                         ncol = length(beta))
-bias.misspec.obs.mat = matrix(NA, nrow = n.samples, ncol = length(beta))
-bias.misspec.sel.mat = matrix(NA, nrow = n.samples, ncol = length(alpha)-1)
+#We're going to report the mean absolute deviation (MAD) of each parameter in
+#all possible scenarios to answer the simulation study.
+#Creating three matrices for the three mean
+#Defining the number of simulations as n.sims. 
+n.sims = 500
+#Define the matrix bias.true as a matrix with rows representing 
+#the simulated samples, and columns equal to the length of beta and alpha. 
+bias.true = matrix(NA, nrow = n.sims, ncol = length(c(beta, alpha)))
+#Defining the matrix bias.linreg.mat as a matrix with rows being the simulation
+#index, and columns being the variables of ONLY the observed process' regression
+#coefficients beta, for the case where we ignore the selection process 
+#(ignorant model)
+bias.linreg.mat = matrix(NA, nrow = n.sims, ncol = length(beta))
+#Defining the matrix bias.misspec.obs.mat as a matrix with rows representing 
+#the simulation index, and columns only being the observed process's 
+#regression coefficients, beta, in the case of misspecification of the selection
+#process. 
+bias.misspec.obs.mat = matrix(NA, nrow = n.sims, ncol = length(beta))
+#Same as above, but here the columns represent the selection process regression
+#coefficients, less the last one, as the misspecified model drops the 
+#corresponding covariate.
+bias.misspec.sel.mat = matrix(NA, nrow = n.sims, ncol = length(alpha)-1)
+#Define an empty vector called missingness. 
+missingness = c()
 
-for (i in 1:n.samples){
-  #For replicability we set the seed here to be the dummy variable i. 
+#For loop iterating over all the samples necessary
+for (i in 1:n.sims){
+  #For replicability set the seed here to be the dummy variable i. 
   set.seed(i)
 
-  #We perform the same procedure as in chunk 1. 
-  eps = rmvnorm(n, sigma = cov.eps)
+  #eps = rmvnorm(n, sigma = cov.eps)
   eps.sel = eps[,1]
   eps.obs = eps[,2]
   
@@ -175,6 +160,9 @@ for (i in 1:n.samples){
   dm.obs = rmvnorm(n, sigma = cov.x)
   x.obs1 = dm.obs[,1]
   x.obs2 = dm.obs[,2]
+  
+  #Defining the observable response latent variable y.obs as in Chapter 2 of my
+  #dissertation. 
   y.obs = cbind(1, dm.obs) %*% beta + eps.obs
   
   #Generating some covariates and responses for the selection process. We will 
@@ -184,60 +172,158 @@ for (i in 1:n.samples){
   x.sel2 = rnorm(n, 0, 2)
   dm.sel = cbind(x.sel1, x.sel2)
 
+  #Defining the selection latent variable y.sel as in Chapter 2 of 
+  #my dissertation. 
   y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
+  #Defining the selection variable to be the indication with condition 
+  #y.sel exceeding zero. 
   select = y.sel > 0
-
+  #Defining the ith element of missingness as the sample proportion of select. 
+  missingness[i] = mean(select)
+  
+  #Applying the MLETobit2 function, and storing the output in OPT. 
   OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
           dess = dm.sel, maxit = 1E3)
+  
+  #Defining the MLE to be the MLE obtained by the Tobit-2 function. 
   MLE = OPT$MLE
+  
+  #Defining the bias from the correctly specified model as the ith row of the 
+  #dataframe bias.true. 
   bias.true[i, ] = as.numeric(MLE[-c(1:2)] - c(beta, alpha))
   
+  #Defining the linear regression model linreg as the model only containing the
+  #observable process, ignoring the selection process (ignorant model)
   linreg = lm(y.obs ~ x.obs1 + x.obs2)
+  
+  #Calculating the bias from 
   bias.linreg.mat[i, ] = as.numeric(coef(linreg) - beta)
   
+  #Defining dm.sel.misspec, the misspecified selection design matrix, with only
+  #the first covariate, x.sel1. 
   dm.sel.misspec = x.sel1
+  #Running the MLETobit2 function for the misspecified model, and storing the 
+  #output in OPT.misspec.
   OPT.misspec = MLETobit2(rep(0, npar-1), out = y.obs, sel = select, 
                           deso = dm.obs, dess = dm.sel.misspec)
+  #Storing the MLEs of the misspecified model in MLE.misspec. 
   MLE.misspec = OPT.misspec$MLE
+  #Calculating the bias of the observable process in the misspecifed model for   
+  #simulation i,  and storing it in row i of bias.misspec.obs.mat. 
   bias.misspec.obs.mat[i, ] = MLE.misspec[c(3:5)] - beta
+  #Same thing but with the selection process instead. 
   bias.misspec.sel.mat[i, ] = MLE.misspec[c(6:7)] - alpha[-3]
 }
-
+#Evaluating the column means of ALL the matrices to report as the mean absolute
+#deviations using colMeans().
 colMeans(abs(bias.true))
 colMeans(abs(bias.linreg.mat))
 colMeans(abs(bias.misspec.obs.mat))
 colMeans(abs(bias.misspec.sel.mat))
+#Evaluating the average proportion of missing data in all samples as the 1 minus
+#the mean of missingness. 
+1-mean(missingness)
 ```
 
 ## Comparison to Linear and Logistic Regression
 
 ```{r}
+#Section based on Rubio (2024). 
 #Assume the regression coefficients are -1, 1, 3.
 lin.pred.coeffs = c(-1, 1, 3)
+
+#Defining the matrices to store the sample absolute deviations for the correct 
+#linear model, the misspecifed linear model, the correct logistic model and 
+#the misspecified logistic model. 
 coeff.lm.true = matrix(NA, ncol = 3, nrow = n)
 coeff.lm.misspec = matrix(NA, ncol = 2, nrow = n)
 coeff.logit.true = matrix(NA, ncol = 3, nrow = n)
 coeff.logit.misspec = matrix(NA, ncol = 2, nrow = n)
+
+#Iteration counter from 1 to n as a generic iteration counter. 
 for (i in 1:n){
+  #Setting seed to i. 
   set.seed(i)
-  x = rmvnorm(n, rep(0, 2))
+  #Generating a matrix of independent standard normal covariates for 
+  #demonstration purposes.
+  x = rmvnorm(n, mean = rep(0, 2))
+  #Creating a vector of responses, y, following the form of a general linear 
+  #model.
   y = cbind(1, x) %*% lin.pred.coeffs + rnorm(n)
+  #Fitting the correct linear model and storing its coefficients in the ith 
+  #row of coeff.lm.true.
   coeff.lm.true[i,] = as.numeric(coef(lm(y ~ x[,1] + x[, 2])))
+  #Fitting the misspecified linear model and storing its coefficients in the ith 
+  #row of coeff.lm.misspec.
   coeff.lm.misspec[i, ] = as.numeric(coef(lm(y ~ x[,1])))
-  
+  #Creating a vector of responses, y2, following the form of a logistic model. 
   y2 = rbinom(n, 1, prob = pnorm(q = cbind(1, x) %*% lin.pred.coeffs))
-  
+  ##Fitting the correct logistic model and storing its coefficients in the ith 
+  #row of coeff.logit.true.
   coeff.logit.true[i, ] = as.numeric(coef(glm(y2 ~ x[,1] + x[,2], family = 
                                                 binomial(link = "probit"))))
-  coeff.logit.misspec[i, ] = as.numeric(coef(glm(y2 ~ x[,1], family = binomial(link = 
-                                                "probit"))))
+  #Fitting the correct misspecified model and storing its coefficients in the 
+  #ith row of coeff.logit.misspec.
+  coeff.logit.misspec[i, ] = as.numeric(coef(glm(y2 ~ x[,1], 
+                                          family = binomial(link = "probit"))))
 }
-
+#Taking the means of all the columns to report for this simulation study using
+#colMeans(). 
 colMeans(coeff.lm.true)
 colMeans(coeff.lm.misspec)
 colMeans(coeff.logit.true)
 colMeans(coeff.logit.misspec)
 ```
+
+## Single Example, seed i = 1
+```{r}
+
+#Same procedure as in simulation study; comments not included here 
+#for conciseness. Only change is setting i = 1. 
+i = 1
+set.seed(i)
+
+eps = rmvnorm(n, sigma = cov.eps)
+eps.sel = eps[,1]
+eps.obs = eps[,2]
+
+dm.obs = rmvnorm(n, sigma = cov.x)
+x.obs1 = dm.obs[,1]
+x.obs2 = dm.obs[,2]
+y.obs = cbind(1, dm.obs) %*% beta + eps.obs
+
+  
+x.sel1 = rnorm(n, 0, 0.5)
+x.sel2 = rnorm(n, 0, 2)
+dm.sel = cbind(x.sel1, x.sel2)
+
+y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
+select = y.sel > 0
+
+OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
+        dess = dm.sel, maxit = 1E3)
+MLE = OPT$MLE
+bias.true.1 = as.numeric(MLE[-c(1:2)] - c(beta, alpha))
+
+linreg = lm(y.obs ~ x.obs1 + x.obs2)
+
+summary(linreg)
+plot(linreg)
+summary(linreg)$'adj.r.squared'
+
+bias.linreg.mat.1 = as.numeric(coef(linreg) - beta)
+
+dm.sel.misspec = x.sel1
+OPT.misspec = MLETobit2(rep(0, npar-1), out = y.obs, sel = select, 
+                        deso = dm.obs, dess = dm.sel.misspec)
+
+bias.true.1
+bias.linreg.mat.1
+OPT.misspec
+MLE.misspec = OPT.misspec$MLE
+
+```
+
 #Bibliography
 
 
