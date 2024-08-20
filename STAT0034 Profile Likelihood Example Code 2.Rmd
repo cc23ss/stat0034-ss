@@ -29,12 +29,14 @@ n = 500
 #Generating the errors. 
 #We define rho here to be the correlation coefficient. 
 sigma = 3; rho = 0.5
+
+#Generating errors following Chapter 2 of my dissertation.
 cov.eps = matrix(c(1, rho*sigma, rho*sigma, sigma^2), nrow = 2, ncol = 2)
 
 #Generating some covariates and responses for the selection process. We will 
-#again opt, for simplicity, to generate normally-distributed data.
+#again opt, for simplicity, to generate normally-distributed data. 
 
-cov.x = matrix(c(2.5, 0, 0, 1), nrow= 2, ncol = 2)
+cov.x = matrix(c(2.25, 0.2*1.5*1, 0.2*1.5*1, 1), nrow = 2, ncol = 2)
 
 #Defining beta and alpha as in Chapter 2 of my dissertation. 
 beta = c(-1, 1, 4)
@@ -149,8 +151,11 @@ missingness = c()
 for (i in 1:n.sims){
   #For replicability set the seed here to be the dummy variable i. 
   set.seed(i)
-
-  #eps = rmvnorm(n, sigma = cov.eps)
+  
+  #Generating a vector of noise variables with rmvnorm() to preserve the 
+  #correlation structure. 
+  eps = rmvnorm(n, sigma = cov.eps)
+  #Isolating the selection and observable processes' noises. 
   eps.sel = eps[,1]
   eps.obs = eps[,2]
   

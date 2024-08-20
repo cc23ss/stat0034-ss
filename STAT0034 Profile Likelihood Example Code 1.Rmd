@@ -27,21 +27,16 @@ library(ssmodels)
 
 #Importing libraries from Rubio, Montoya and Espinola (2024) to apply the 
 #Hessian method, for curiosity. 
-
-library(knitr)
 library(numDeriv)
-library(survival)
-library(flexsurv)
-library(devtools)
 
 #Defining the MLE for Tobit-2 model as the function MLETobit2, as discussed in 
 #Chapter 2 of my dissertation.
 
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observable model, sel, the responses 
-#of the selection model, deso, the design matrix for the observable model, less the 
-#first column, dess, the design matrix for the selection process less the first 
-#column, method, the optimisation method, and maxit, the maximum number of 
+#of the selection model, deso, the design matrix for the observable model, less 
+#the first column, dess, the design matrix for the selection process less the 
+#first column, method, the optimisation method, and maxit, the maximum number of 
 #iterations, with default number 100.
 
 MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
@@ -145,7 +140,6 @@ dm.sel = cbind(dm.obs, income)
 #Taking a boxplot of income, as both processes only differ by income. 
 boxplot(dm.sel[, c(7)],xlab = "Income", ylab = "Income($USD '000)", 
         col = "brown")
-legend(x = "topright", legend = c("Income"), col = c("brown"), pch = 16)
 summary(dm.sel)
 
 #Selection response, a binary (0/1) variable which acts as the indicator 
@@ -157,7 +151,7 @@ sel = as.logical(dambexp)
 #Taking the sample proportion with mean().  
 mean(sel)
 
-#observed responses, corresponding to log ambulatory expenditures, lnambx.
+#observable responses, corresponding to log ambulatory expenditures, lnambx.
 y = lnambx
 
 #Finding the MLE of the Tobit-2 likelihood, with unscaled parameter. 
@@ -221,7 +215,8 @@ ML = OPT$OPT$objective
 #number of iterations, and method, the optimisation algorithm used.
 #MODIFICATIONS: Added method and max.iter as new parameters. 
 prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb"){
-  #Creating the tempf function as a dummy function to perform optimisation over.
+  #Creating the tempf function as a dummy function to perform optimisation over
+  #the log-likelihood.
   tempf = function(par){
     tempv = rep(0, p)
     tempv = replace(x = tempv, c(1:p)[-ind], par)
@@ -234,8 +229,9 @@ prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb
   if (method == "nlminb"){
     #Evaluate the output out as the negative of the nlimb() optimisation output, 
     #since this will mean we get a maximum, as nlminb() finds minima. 
-  out = -nlminb(OPT$OPT$par[-ind]*rep(init == "MLE", length(OPT$OPT$par[-ind])), 
-                tempf, control = list(iter.max = max.iter))$objective + ML
+    out = -nlminb(OPT$OPT$par[-ind]*rep(init == "MLE", 
+            length(OPT$OPT$par[-ind])), tempf, control = list(iter.max =
+            max.iter))$objective + ML
   }
   #MODIFICATION - Add a conditional statement for any non-nlminb method 
   #supported in optim. 
@@ -268,13 +264,15 @@ prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1,
 curve(prof1, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
       ylab = "Profile Likelihood")
 
+#par(mfrow = c(1, 2))
+
 #Perform the same procedure from above, but start with the MLE as an initial 
 #value. 
 prof1a = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
   init = "MLE", method = "nlminb"))
 
 curve(prof1a, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
-      ylab = "Profile Likelihood") 
+      ylab = "Profile Likelihood", col = "red", main = "MLE-nlminb") 
 
 #Below commented out to streamline code. 
 #Perform the same procedure as for prof1a, but this time using 100k iterations
@@ -288,43 +286,129 @@ curve(prof1a, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma),
 #Redoing prof1a, except using the "BFGS" algorithm instead of the nlminb method.
 prof1c = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
   init = "MLE", method = "BFGS"))
-curve(prof1c, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
-      ylab = "Profile Likelihood")
+curve(prof1c, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
+      ylab = "Profile Likelihood", col = "blue", main = "MLE-BFGS")
+
+#par(mfrow = c(1, 1))
 
 #Performing the same procedure as in prof1a, except this time for rho.
 #Note that as we used a tanh link for the rho parameter, we need to invert the
 #transformation when plotting the profile likelihood.
 prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
                                     init = "MLE", method = "nlminb"))
-curve(prof2,-0.6, 0.25 , n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
+
+curve(prof2,-0.6, 0.25 , n = 50, lwd = 1, xlab = expression(atanh(rho)), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", rho)))
 
 #Performing the same procedure here as well for beta_0, the intercept term for 
 #the observable process. 
 prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
-curve(prof3,4.25,6 , n = 50, lwd = 2, xlab = expression(beta[0]), ylab = "Profile Likelihood")
+curve(prof3, 4.25, 6, n = 50, lwd = 1, xlab = expression(beta[0]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[0])))
+
+#Performing the same procedure for all other parameters in the model. 
+prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE"))
+curve(prof4, 0.19, 0.22, n = 50, lwd = 1, xlab = expression(beta[1]), 
+      ylab = "Profile Likelihood",
+      main = expression(paste("Profile Likelihood for ", beta[1])))
+
+prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE"))
+curve(prof5, 0.31, 0.37 , n = 50, lwd = 1, xlab = expression(beta[2]), 
+      ylab = "Profile Likelihood",
+      main = expression(paste("Profile Likelihood for ", beta[2])))
+
+prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE"))
+curve(prof6, 0.01, 0.02 , n = 50, lwd = 1, xlab = expression(beta[3]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[3])))
+
+prof7= Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE"))
+curve(prof7, 0.19,0.22 , n = 50, lwd = 1, xlab = expression(beta[4]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[4])))
+
+prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE"))
+curve(prof4, 0.5, 0.55 , n = 50, lwd = 1, xlab = expression(beta[5]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[5])))
+
+prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE"))
+curve(prof4, -0.05, 0.05 , n = 50, lwd = 1, xlab = expression(beta[6]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[6])))
+  
+prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE"))
+curve(prof10, -0.67, -0.66 , n = 50, lwd = 1, xlab = expression(alpha[0]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[0])))
+
+prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE"))
+curve(prof11, 0.08, 0.09 , n = 50, lwd = 1, xlab = expression(alpha[1]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[1])))
+
+prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE"))
+curve(prof12, 0.66, 0.67 , n = 50, lwd = 1, xlab = expression(alpha[2]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[2])))
+
+prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE"))
+curve(prof13, 0.06, 0.065, n = 50, lwd = 1, xlab = expression(alpha[3]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[3])))
+
+prof14 = Vectorize(function(par) prof.lik(parint = par, ind = 14, init = "MLE"))
+curve(prof14, -0.365, -0.36 , n = 50, lwd = 1, xlab = expression(alpha[4]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[4])))
+
+prof15 = Vectorize(function(par) prof.lik(parint = par, ind = 15, init = "MLE"))
+curve(prof15, 0.795, 0.8, n = 50, lwd = 1, xlab = expression(alpha[5]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[5])))
+
+prof16 = Vectorize(function(par) prof.lik(parint = par, ind = 16, init = "MLE"))
+curve(prof16, 0.17, 0.175, n = 50, lwd = 1, xlab = expression(alpha[6]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[6])))
+
+prof17 = Vectorize(function(par) prof.lik(parint = par, ind = 17, init = "MLE"))
+curve(prof17, 0.0025, 0.0029, n = 50, lwd = 1, xlab = expression(alpha[7]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[7])))
 
 ```
+
 ### Constructing a Profile Likelihood Confidence Interval
 ```{r}
-#Vectorise a shifted version of the rho parameter (parameter 2), to create a
+#MODIFICATION - Changed rho to sigma
+#MODIFICATION - added the variable bound to denote the 0.147 boundary point
+#for our profile likelihood confidence interval. 
+#Defining our significance level, SL = 0.05
+SL = 0.05
+#Defining bound following Lemma 4.1 in my dissertation. 
+bound = exp(-0.5*qchisq(1-SL, df = 1))
+#Vectorise a shifted version of the sigma parameter (parameter 2), to create a
 #0.147-profile likelihood confidence interval - see Chapter 4 for more details.
-intprof2 = Vectorize(function(rho) prof2(rho) - 0.147)
-intprof2
+intprof1 = Vectorize(function(sigma) prof1(sigma) - bound)
 #Plotting this new profile log-likelihood with the curve() function.
-curve(prof2,-0.6,0.25, n = 50, lwd = 2, xlab = expression(rho), ylab = "Profile Likelihood")
+curve(prof1, 1.20,1.35, n = 50, lwd = 1, xlab = expression(sigma), ylab = 
+        "Profile Likelihood")
 #... then adding the line corresponding to 0.147 to show the confidence interval
 #of interest. 
-abline(h = 0.147, lwd = 2, col = "red")
+abline(h = bound, lwd = 2, col = "red")
 
 #Evaluating the lower and upper profile likelihood confidence interval, LP and
-#UP respectively, for a 0.147-confidence interval, using uniroot()
+#UP respectively, for a 0.147-confidence interval for sigma, using uniroot()
 
-LP = uniroot(f = intprof2, interval = c(-0.5,-0.4))$root
-UP = uniroot(f = intprof2, interval = c(0.1,0.2))$root
+LP = uniroot(f = intprof1, interval = c(1.20,1.25))$root
+UP = uniroot(f = intprof1, interval = c(1.30,1.35))$root
 
-#Inverting the tanh link for rho to get a 0.147-profile likelihood confidence
-#interval.
-tanh(c(LP, UP))
+#Getting a 0.147-profile likelihood confidence interval, which is equivalent to 
+#a 0.95-confidence interval. 
+c(LP, UP)
 ```
 
 ### Hessian Method
