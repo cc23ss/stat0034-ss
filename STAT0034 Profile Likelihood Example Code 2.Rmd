@@ -1,65 +1,49 @@
 ---
-title: "Example 4"
+title: "Example 1 - Tobit-2 Model"
 output: html_document
-date: "2024-07-17"
-bibliography:
+date: "2024-06-02"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Numerical Simulation
+## Formulation of the Tobit-2 log-likelihood (Ch. 2)
 
 ```{r}
-
-#We'll import the package mvtnorm in order to simulate the errors between 
-#the errors. This is really important since we need to capture the dependence 
-#structure between the noise terms. 
-
-library(mvtnorm)
-
-#Setting a seed for replicability
+#The following implementation was taken from Rubio (2024).
+#ADDITION: setting the seed for replicability. 
 set.seed(1111)
+#Importing the sampleSelection package - This is the focal package of my 
+#dissertation. 
 
-#We define all the invariant true parameter values here. 
-#Defining the hypothetical sample size, n, for all our samples
-n = 500
+library(sampleSelection)
 
-#Generating the errors. 
-#We define rho here to be the correlation coefficient. 
-sigma = 3; rho = 0.5
+#Importing the libraries ssmrob and ssmodels, which are for robust inference and 
+#modelling for sample selection models.
 
-#Generating errors following Chapter 2 of my dissertation.
-cov.eps = matrix(c(1, rho*sigma, rho*sigma, sigma^2), nrow = 2, ncol = 2)
+library(ssmrob)
+library(ssmodels)
 
-#Generating some covariates and responses for the selection process. We will 
-#again opt, for simplicity, to generate normally-distributed data. 
+#Importing libraries from Rubio, Montoya and Espinola (2024) to apply the 
+#Hessian method, for curiosity. 
+library(numDeriv)
 
-cov.x = matrix(c(2.25, 0.2*1.5*1, 0.2*1.5*1, 1), nrow = 2, ncol = 2)
+#Defining the MLE for Tobit-2 model as the function MLETobit2, as discussed in 
+#Chapter 2 of my dissertation.
 
-#Defining beta and alpha as in Chapter 2 of my dissertation. 
-beta = c(-1, 1, 4)
-alpha = c(1.5, 2, 3)
-
-```
-
-## Applying the Tobit-2 Model
-```{r}
-#Code from example 1. 
-
-#Defining our Tobit-2 Model here, taken from example 1.
 #This takes inputs init, the inital value from where the parameter estimate is 
-#evaluated from, out, the responses of the observed model, sel, the responses 
-#of the selection model, deso, the design matrix for the observed model, less the 
-#first column, dess, the design matrix for the selection process less the first 
-#column, method, the optimisation method, and maxit, the maximum number of 
+#evaluated from, out, the responses of the observable model, sel, the responses 
+#of the selection model, deso, the design matrix for the observable model, less 
+#the first column, dess, the design matrix for the selection process less the 
+#first column, method, the optimisation method, and maxit, the maximum number of 
 #iterations, with default number 100.
+
 MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
                      method = "nlminb", maxit = 100){
   #Converting the inputs out and sel into vectors.
   out = as.vector(out); sel = as.vector(sel)
-  #Defining x1 and w1 as the design matrices of the observed and selection 
+  #Defining x1 and w1 as the design matrices of the observable and selection 
   #processes respectively by adding back the missing column of 1's.
   x1 = as.matrix(cbind(1, deso)); w1 = as.matrix(cbind(1, dess))
   #Defining p and q as the number of columns of x1 and w1 respectively. 
@@ -70,14 +54,16 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
     #Reparametrising sigma and rho in our model, using an exponential and a 
     #tanh link. 
     sigma = exp(par[1]); rho = tanh(par[2]) 
-    #Defining our linear regression coefficients for the observed model, beta, 
-    #and that for the selection model, alpha. 
+    #Defining our linear regression coefficients for the observable model, beta, 
+    #and that for the selection model, alpha. (Modified from Rubio(2023)).
     #TODO: Reparametrise beta = beta.tilde
     beta = par[c(3:(p+2))]; alpha = par[(p+3):(p+q+2)]
     #Reparametrisation if beta_par = 1
     if(beta_par){
       beta = beta/sigma
     }
+    #Defining the linear predictors of the observable process (x_beta) and the 
+    #the selection process (w_alpha). 
     x_beta = x1%*%beta; w_alpha = w1%*%alpha
     #Defining inds0 and inda1 as indicators corresponding to the selection 
     #criterion, which can be seen in chapter 2. 
@@ -87,7 +73,7 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
          sum(pnorm( (w_alpha[inds1] + rho*(out[inds1] - x_beta[inds1])/sigma)/
                       sqrt(1 - rho^2), log = T)) + 
     #MODIFICATION: compressed the explicit evaluation of the normal component of
-    #the observed processes into the dnorm function, as the distribution is a
+    #the observable processes into the dnorm function, as the distribution is a
     #N(x_beta, sigma^2) distributed random variable from proof (INSERT). 
          sum(dnorm(out[inds1], mean = x_beta[inds1], sd = sigma, log = T))
     #Returning the log-loss, which we will minimise using the optim commands. 
@@ -99,10 +85,11 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
   #(by default).
   if(method == "nlminb"){ 
     OPT = nlminb(init, loglik, control = list(iter.max = maxit))
-  } 
-  #Conditional to evaluate the optimal value using the optim() function
+  }
+  #MODIFICATION- Conditional to evaluate the optimal value using the optim() 
+  #function
   else{
-    #Using optim to 
+    #Using optim to allow us to select our desired optimisation algorithm.
     OPT = optim(init, loglik, control = list(maxit = maxit), method = method)
   }
   #Storing the MLES in a vector, remembering to undo the links defined above. 
@@ -115,221 +102,331 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
   outf = list(loglik = loglik, OPT = OPT, MLE = MLE)
   #Returning outf as the function output. 
   return(outf)
+  
 }
-npar = 8
-
-```
-## A Monte Carlo Approach
-
-```{r}
-#We're going to report the mean absolute deviation (MAD) of each parameter in
-#all possible scenarios to answer the simulation study.
-#Creating three matrices for the three mean
-#Defining the number of simulations as n.sims. 
-n.sims = 500
-#Define the matrix bias.true as a matrix with rows representing 
-#the simulated samples, and columns equal to the length of beta and alpha. 
-bias.true = matrix(NA, nrow = n.sims, ncol = length(c(beta, alpha)))
-#Defining the matrix bias.linreg.mat as a matrix with rows being the simulation
-#index, and columns being the variables of ONLY the observed process' regression
-#coefficients beta, for the case where we ignore the selection process 
-#(ignorant model)
-bias.linreg.mat = matrix(NA, nrow = n.sims, ncol = length(beta))
-#Defining the matrix bias.misspec.obs.mat as a matrix with rows representing 
-#the simulation index, and columns only being the observed process's 
-#regression coefficients, beta, in the case of misspecification of the selection
-#process. 
-bias.misspec.obs.mat = matrix(NA, nrow = n.sims, ncol = length(beta))
-#Same as above, but here the columns represent the selection process regression
-#coefficients, less the last one, as the misspecified model drops the 
-#corresponding covariate.
-bias.misspec.sel.mat = matrix(NA, nrow = n.sims, ncol = length(alpha)-1)
-#Define an empty vector called missingness. 
-missingness = c()
-
-#For loop iterating over all the samples necessary
-for (i in 1:n.sims){
-  #For replicability set the seed here to be the dummy variable i. 
-  set.seed(i)
-  
-  #Generating a vector of noise variables with rmvnorm() to preserve the 
-  #correlation structure. 
-  eps = rmvnorm(n, sigma = cov.eps)
-  #Isolating the selection and observable processes' noises. 
-  eps.sel = eps[,1]
-  eps.obs = eps[,2]
-  
-  #Generating some covariates and responses for the selection process. We will 
-  #again opt, for simplicity, to generate normally-distributed data.
-  
-  dm.obs = rmvnorm(n, sigma = cov.x)
-  x.obs1 = dm.obs[,1]
-  x.obs2 = dm.obs[,2]
-  
-  #Defining the observable response latent variable y.obs as in Chapter 2 of my
-  #dissertation. 
-  y.obs = cbind(1, dm.obs) %*% beta + eps.obs
-  
-  #Generating some covariates and responses for the selection process. We will 
-  #opt, for simplicity, to generate normally-distributed data. 
-    
-  x.sel1 = rnorm(n, 0, 0.5)
-  x.sel2 = rnorm(n, 0, 2)
-  dm.sel = cbind(x.sel1, x.sel2)
-
-  #Defining the selection latent variable y.sel as in Chapter 2 of 
-  #my dissertation. 
-  y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
-  #Defining the selection variable to be the indication with condition 
-  #y.sel exceeding zero. 
-  select = y.sel > 0
-  #Defining the ith element of missingness as the sample proportion of select. 
-  missingness[i] = mean(select)
-  
-  #Applying the MLETobit2 function, and storing the output in OPT. 
-  OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
-          dess = dm.sel, maxit = 1E3)
-  
-  #Defining the MLE to be the MLE obtained by the Tobit-2 function. 
-  MLE = OPT$MLE
-  
-  #Defining the bias from the correctly specified model as the ith row of the 
-  #dataframe bias.true. 
-  bias.true[i, ] = as.numeric(MLE[-c(1:2)] - c(beta, alpha))
-  
-  #Defining the linear regression model linreg as the model only containing the
-  #observable process, ignoring the selection process (ignorant model)
-  linreg = lm(y.obs ~ x.obs1 + x.obs2)
-  
-  #Calculating the bias from 
-  bias.linreg.mat[i, ] = as.numeric(coef(linreg) - beta)
-  
-  #Defining dm.sel.misspec, the misspecified selection design matrix, with only
-  #the first covariate, x.sel1. 
-  dm.sel.misspec = x.sel1
-  #Running the MLETobit2 function for the misspecified model, and storing the 
-  #output in OPT.misspec.
-  OPT.misspec = MLETobit2(rep(0, npar-1), out = y.obs, sel = select, 
-                          deso = dm.obs, dess = dm.sel.misspec)
-  #Storing the MLEs of the misspecified model in MLE.misspec. 
-  MLE.misspec = OPT.misspec$MLE
-  #Calculating the bias of the observable process in the misspecifed model for   
-  #simulation i,  and storing it in row i of bias.misspec.obs.mat. 
-  bias.misspec.obs.mat[i, ] = MLE.misspec[c(3:5)] - beta
-  #Same thing but with the selection process instead. 
-  bias.misspec.sel.mat[i, ] = MLE.misspec[c(6:7)] - alpha[-3]
-}
-#Evaluating the column means of ALL the matrices to report as the mean absolute
-#deviations using colMeans().
-colMeans(abs(bias.true))
-colMeans(abs(bias.linreg.mat))
-colMeans(abs(bias.misspec.obs.mat))
-colMeans(abs(bias.misspec.sel.mat))
-#Evaluating the average proportion of missing data in all samples as the 1 minus
-#the mean of missingness. 
-1-mean(missingness)
 ```
 
-## Comparison to Linear and Logistic Regression
+## Profile Likelihood, applied onto MEPS2001
 
-```{r}
-#Section based on Rubio (2024). 
-#Assume the regression coefficients are -1, 1, 3.
-lin.pred.coeffs = c(-1, 1, 3)
+```{r MEPS2001, echo=FALSE}
+#Attach the MEPS2001 dataset from the ssmrob package. 
+attach(MEPS2001)
 
-#Defining the matrices to store the sample absolute deviations for the correct 
-#linear model, the misspecifed linear model, the correct logistic model and 
-#the misspecified logistic model. 
-coeff.lm.true = matrix(NA, ncol = 3, nrow = n)
-coeff.lm.misspec = matrix(NA, ncol = 2, nrow = n)
-coeff.logit.true = matrix(NA, ncol = 3, nrow = n)
-coeff.logit.misspec = matrix(NA, ncol = 2, nrow = n)
+#Beginning of exploratory data analysis. 
+#?MEPS2001 - Read documentation for this dataset.
+#Look at the top of
+head(MEPS2001)
 
-#Iteration counter from 1 to n as a generic iteration counter. 
-for (i in 1:n){
-  #Setting seed to i. 
-  set.seed(i)
-  #Generating a matrix of independent standard normal covariates for 
-  #demonstration purposes.
-  x = rmvnorm(n, mean = rep(0, 2))
-  #Creating a vector of responses, y, following the form of a general linear 
-  #model.
-  y = cbind(1, x) %*% lin.pred.coeffs + rnorm(n)
-  #Fitting the correct linear model and storing its coefficients in the ith 
-  #row of coeff.lm.true.
-  coeff.lm.true[i,] = as.numeric(coef(lm(y ~ x[,1] + x[, 2])))
-  #Fitting the misspecified linear model and storing its coefficients in the ith 
-  #row of coeff.lm.misspec.
-  coeff.lm.misspec[i, ] = as.numeric(coef(lm(y ~ x[,1])))
-  #Creating a vector of responses, y2, following the form of a logistic model. 
-  y2 = rbinom(n, 1, prob = pnorm(q = cbind(1, x) %*% lin.pred.coeffs))
-  ##Fitting the correct logistic model and storing its coefficients in the ith 
-  #row of coeff.logit.true.
-  coeff.logit.true[i, ] = as.numeric(coef(glm(y2 ~ x[,1] + x[,2], family = 
-                                                binomial(link = "probit"))))
-  #Fitting the correct misspecified model and storing its coefficients in the 
-  #ith row of coeff.logit.misspec.
-  coeff.logit.misspec[i, ] = as.numeric(coef(glm(y2 ~ x[,1], 
-                                          family = binomial(link = "probit"))))
-}
-#Taking the means of all the columns to report for this simulation study using
-#colMeans(). 
-colMeans(coeff.lm.true)
-colMeans(coeff.lm.misspec)
-colMeans(coeff.logit.true)
-colMeans(coeff.logit.misspec)
-```
+#TODO: Exploratory data analysis. 
 
-## Single Example, seed i = 1
-```{r}
+#Defining design matrices (less the intercept column). 
+#... for the observable model.
 
-#Same procedure as in simulation study; comments not included here 
-#for conciseness. Only change is setting i = 1. 
-i = 1
-set.seed(i)
+par(mfrow = c(1, 1))
 
-eps = rmvnorm(n, sigma = cov.eps)
-eps.sel = eps[,1]
-eps.obs = eps[,2]
+dm.obs = cbind(age, female, educ, blhisp, totchr, ins)
+#Taking a boxplot of age, educ, and totchr, as these are numeric. 
+boxplot(dm.obs[, c(1, 3, 5)], xlab = "Covariate", 
+        col = c("red", "blue", "gray"), main = "Observable Process")
+legend(x = "topright", legend = c("Age (Years)", "Education (Years)", 
+                                  "# of Chronic Diseases"), 
+       col = c("red", "blue", "gray"), pch = rep(16, 3))
+summary(dm.obs)
 
-dm.obs = rmvnorm(n, sigma = cov.x)
-x.obs1 = dm.obs[,1]
-x.obs2 = dm.obs[,2]
-y.obs = cbind(1, dm.obs) %*% beta + eps.obs
+#Taking the sample proportion of female, blhisp and ins with colMeans().
+colMeans(dm.obs[,c(2, 4, 6)])
 
-  
-x.sel1 = rnorm(n, 0, 0.5)
-x.sel2 = rnorm(n, 0, 2)
-dm.sel = cbind(x.sel1, x.sel2)
+#... for the selection model.
+dm.sel = cbind(dm.obs, income)
+#Taking a boxplot of income, as both processes only differ by income. 
+boxplot(dm.sel[, 7],xlab = "Income", ylab = "Income($USD '000)", 
+        col = "brown", main = "Selection Process")
+summary(dm.sel)
 
-y.sel = cbind(1, dm.sel) %*% alpha + eps.sel
-select = y.sel > 0
+#Selection response, a binary (0/1) variable which acts as the indicator 
+#function corresponding to the latent variable for positive ambulatory 
+#expenditures. 
 
-OPT = MLETobit2(rep(0, npar), out = y.obs, sel = select, deso = dm.obs, 
-        dess = dm.sel, maxit = 1E3)
+sel = as.logical(dambexp)
+
+#Taking the sample proportion with mean().  
+mean(sel)
+
+#observable responses, corresponding to log ambulatory expenditures, lnambx.
+y = lnambx
+
+#Finding the MLE of the Tobit-2 likelihood, with unscaled parameter. 
+OPT = MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = dm.obs, 
+                dess = dm.sel, method = "nlminb", maxit = 1E4, beta_par = 0)
+
+#Getting and printing the MLEs for the Tobit-2 likelihood, for this specific
+#dataset. 
 MLE = OPT$MLE
-bias.true.1 = as.numeric(MLE[-c(1:2)] - c(beta, alpha))
+MLE
 
-linreg = lm(y.obs ~ x.obs1 + x.obs2)
+#Getting the log-likelihood, which is the negative of the log-loss, from the  
+#MLETobit2() function. 
+-OPT$OPT$objective
 
-summary(linreg)
-plot(linreg)
-summary(linreg)$'adj.r.squared'
+#Doing the same thing, but with scaled beta parameter.
+OPT2 = MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = dm.obs, 
+                dess = dm.sel, method = "nlminb", maxit = 1E4, beta_par = 1)
+MLE2 = OPT2$MLE
+MLE2
 
-bias.linreg.mat.1 = as.numeric(coef(linreg) - beta)
+#Getting the base-10 log of the difference of the two MLEs. The biggest 
+#difference seems to be that of the intercept, 
+log(abs(MLE-MLE2), 10)
 
-dm.sel.misspec = x.sel1
-OPT.misspec = MLETobit2(rep(0, npar-1), out = y.obs, sel = select, 
-                        deso = dm.obs, dess = dm.sel.misspec)
+#Comparing this to other optimisation algorithms. 
+#Defining two equation objects, selectEq and obsEq, which define the 
+#relationship between the response and the covariates for the selection and
+#observable process respectively. 
+selectEq = dambexp ~ age + female + educ + blhisp + totchr + ins + income
+obsEq = update(selectEq, . - dambexp + y ~ . - income)
 
-bias.true.1
-bias.linreg.mat.1
-OPT.misspec
-MLE.misspec = OPT.misspec$MLE
+#Using the HeckmanCL function from the ssmodels package to perform MLE on the 
+#data, repeating what we did above with MLETobit2, and storing the output in 
+#HMLE.
+HMLE = HeckmanCL(selectEq, obsEq, data = MEPS2001)
+#Retrieving a summary for HMLE.
+coef(HMLE)
+
+#Repeating the same analysis as above, but with the selection() function from 
+#sampleSelection, and storing the output in ssMLE. 
+ssMLE = selection(selectEq, obsEq)
+summary(ssMLE)
+
+#Repeating the same analysis as above, this time
+ssMLE.2step = selection(selectEq, obsEq, data = MEPS2001, method = "2step")
+coef(ssMLE.2step)
+```
+
+## Applying the profile likelihood
+```{r}
+#Defining p, the number of parameters in the model, and ML, the log-loss of 
+#the original MLETobit2 model. 
+p = length(MLE)
+ML = OPT$OPT$objective
+
+#Create the function prof.lik to evaluate the profile likelihood MLE. 
+#This has parameters parint, for the parameter of interest (or its
+#reparametrisations), ind, the corresponding index, init, the initial value used
+#for optimisation, either from zeros or from the regular MLE, max.iter, the 
+#number of iterations, and method, the optimisation algorithm used.
+#MODIFICATIONS: Added method and max.iter as new parameters. 
+prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb"){
+  #Creating the tempf function as a dummy function to perform optimisation over
+  #the log-likelihood.
+  tempf = function(par){
+    tempv = rep(0, p)
+    tempv = replace(x = tempv, c(1:p)[-ind], par)
+    tempv[ind] = parint
+    return(OPT$loglik(tempv))
+  }
+  #MODIFICATION - condensed the two conditional statements into a single 
+  #conditional using truthy values & their correspondence to 0/1.
+  #MODIFICATION - Add the max.iter variable here
+  if (method == "nlminb"){
+    #Evaluate the output out as the negative of the nlimb() optimisation output, 
+    #since this will mean we get a maximum, as nlminb() finds minima. 
+    out = -nlminb(OPT$OPT$par[-ind]*rep(init == "MLE", 
+            length(OPT$OPT$par[-ind])), tempf, control = list(iter.max =
+            max.iter))$objective + ML
+  }
+  #MODIFICATION - Add a conditional statement for any non-nlminb method 
+  #supported in optim. 
+  else{
+    #Evaluate the output out as the negative of the optim() minimisation output
+    #to get a maximum estimate.
+    out = -optim(par = OPT$OPT$par[-ind]*rep(init == "MLE", 
+      length(OPT$OPT$par[-ind])), fn = tempf, method = method, control = 
+      list(maxit = max.iter, reltol = 1E-5))$value + ML
+  }
+  #We return the exponential of the output since we used the log-likelihood.
+  #This returns the profile likelihood. 
+  return(exp(out))
+}
+
+#Interpreted from ?Vectorize call - create a vector-function hybrid object where 
+#if you pass it vector values it will output a vector of corresponding function
+#outputs. In this case, one can imagine here that it creates a vector object for 
+#our previously defined prof.lik function, and when we pass a vector to it, it 
+#should create a vector of the outputs of the prof.lik() function for all 
+#elements in the vector. 
+
+#Recall here we used an exponential link for sigma, the first parameter, so we
+#revert it here. 
+prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+                                         init = "zero"))
+
+#Plots the profile likelihood using the curve() function. 
+#NOTE: This takes a long time to run. 
+curve(prof1, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
+      ylab = "Profile Likelihood", main = "zero-nlminb")
+
+#par(mfrow = c(1, 2))
+
+#Perform the same procedure from above, but start with the MLE as an initial 
+#value. 
+prof1a = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+  init = "MLE", method = "nlminb"))
+
+curve(prof1a, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
+      ylab = "Profile Likelihood", col = "red", main = "MLE-nlminb") 
+
+#Below commented out to streamline code (no change in results). 
+#Perform the same procedure as for prof1a, but this time using 100k iterations
+#instead of 10k to diagnose the roughness of the MLE profile likelihood curve. 
+#prof1b = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+#  init = "zero", max.iter = 1E5, method = "BFGS"))
+
+#curve(prof1b, 1.2, 1.35, n = 50, lwd = 2, xlab = expression(sigma), 
+#      ylab = "Profile Likelihood")
+
+#Redoing prof1a, except using the "BFGS" algorithm instead of the nlminb method.
+prof1c = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
+  init = "MLE", method = "BFGS"))
+curve(prof1c, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
+      ylab = "Profile Likelihood", col = "blue", main = "MLE-BFGS")
+
+#par(mfrow = c(1, 1))
+
+#Performing the same procedure as in prof1a, except this time for rho.
+#Note that as we used a tanh link for the rho parameter, we need to invert the
+#transformation when plotting the profile likelihood.
+prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
+                                    init = "MLE", method = "nlminb"))
+
+curve(prof2,-0.6, 0.25 , n = 50, lwd = 1, xlab = expression(atanh(rho)), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", rho)))
+
+#Performing the same procedure here as well for beta_0, the intercept term for 
+#the observable process. 
+prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
+curve(prof3, 4.25, 6, n = 50, lwd = 1, xlab = expression(beta[0]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[0])))
+
+#Performing the same procedure for all other parameters in the model. 
+prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE"))
+curve(prof4, 0.19, 0.22, n = 50, lwd = 1, xlab = expression(beta[1]), 
+      ylab = "Profile Likelihood",
+      main = expression(paste("Profile Likelihood for ", beta[1])))
+
+prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE"))
+curve(prof5, 0.31, 0.37 , n = 50, lwd = 1, xlab = expression(beta[2]), 
+      ylab = "Profile Likelihood",
+      main = expression(paste("Profile Likelihood for ", beta[2])))
+
+prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE"))
+curve(prof6, 0.01, 0.02 , n = 50, lwd = 1, xlab = expression(beta[3]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[3])))
+
+prof7= Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE"))
+curve(prof7, 0.19,0.22 , n = 50, lwd = 1, xlab = expression(beta[4]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[4])))
+
+prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE"))
+curve(prof4, 0.5, 0.55 , n = 50, lwd = 1, xlab = expression(beta[5]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[5])))
+
+prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE"))
+curve(prof4, -0.05, 0.05 , n = 50, lwd = 1, xlab = expression(beta[6]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", beta[6])))
+  
+prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE"))
+curve(prof10, -0.67, -0.66 , n = 50, lwd = 1, xlab = expression(alpha[0]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[0])))
+
+prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE"))
+curve(prof11, 0.08, 0.09 , n = 50, lwd = 1, xlab = expression(alpha[1]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[1])))
+
+prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE"))
+curve(prof12, 0.66, 0.67 , n = 50, lwd = 1, xlab = expression(alpha[2]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[2])))
+
+prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE"))
+curve(prof13, 0.06, 0.065, n = 50, lwd = 1, xlab = expression(alpha[3]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[3])))
+
+prof14 = Vectorize(function(par) prof.lik(parint = par, ind = 14, init = "MLE"))
+curve(prof14, -0.365, -0.36 , n = 50, lwd = 1, xlab = expression(alpha[4]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[4])))
+
+prof15 = Vectorize(function(par) prof.lik(parint = par, ind = 15, init = "MLE"))
+curve(prof15, 0.795, 0.8, n = 50, lwd = 1, xlab = expression(alpha[5]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[5])))
+
+prof16 = Vectorize(function(par) prof.lik(parint = par, ind = 16, init = "MLE"))
+curve(prof16, 0.17, 0.175, n = 50, lwd = 1, xlab = expression(alpha[6]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[6])))
+
+prof17 = Vectorize(function(par) prof.lik(parint = par, ind = 17, init = "MLE"))
+curve(prof17, 0.0025, 0.0029, n = 50, lwd = 1, xlab = expression(alpha[7]), 
+      ylab = "Profile Likelihood", 
+      main = expression(paste("Profile Likelihood for ", alpha[7])))
 
 ```
 
-#Bibliography
+### Constructing a Profile Likelihood Confidence Interval
+```{r}
+#MODIFICATION - Changed rho to sigma
+#MODIFICATION - added the variable bound to denote the 0.147 boundary point
+#for our profile likelihood confidence interval. 
+#Defining our significance level, SL = 0.05
+SL = 0.05
+#Defining bound following Lemma 4.1 in my dissertation. 
+bound = exp(-0.5*qchisq(1-SL, df = 1))
+#Vectorise a shifted version of the sigma parameter (parameter 2), to create a
+#0.147-profile likelihood confidence interval - see Chapter 4 for more details.
+intprof1 = Vectorize(function(sigma) prof1(sigma) - bound)
+#Plotting this new profile log-likelihood with the curve() function.
+curve(prof1, 1.20,1.35, n = 50, lwd = 1, xlab = expression(sigma), ylab = 
+        "Profile Likelihood")
+#... then adding the line corresponding to 0.147 to show the confidence interval
+#of interest. 
+abline(h = bound, lwd = 2, col = "red")
 
+#Evaluating the lower and upper profile likelihood confidence interval, LP and
+#UP respectively, for a 0.147-confidence interval for sigma, using uniroot()
 
+LP = uniroot(f = intprof1, interval = c(1.20,1.25))$root
+UP = uniroot(f = intprof1, interval = c(1.30,1.35))$root
 
+#Getting a 0.147-profile likelihood confidence interval, which is equivalent to 
+#a 0.95-confidence interval. 
+c(LP, UP)
+```
+
+### Hessian Method
+```{r}
+#THIS IS A NEW ADDITION TO THE CODE - NOT FOUND IN RUBIO (2024). 
+#Performing the procedure as described in Cole (2020), p. 
+#Evaluating the Hessian at the numerically-obtained MLE. 
+hess.model = -hessian(func = OPT$loglik, x = OPT$OPT$par)
+#Getting the Hessian's eigenvalues.
+eigen.vals = eigen(hess.model)$values
+#Getting the reference values as defined in Cole (2020) and in Chapter 5 of the 
+#Dissertation.
+ref.vals = abs(as.vector(eigen.vals))/max(abs(as.vector(eigen.vals)))
+#Getting sev as the sorted vector of reference values. 
+sev = sort(ref.vals)
+sev
+#Checking if the larges reference value is lower than the 1E-9 threshold for 
+#non-identifiability. 
+sev[1] < 1E-9
+```

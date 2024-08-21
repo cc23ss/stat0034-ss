@@ -22,11 +22,9 @@ library(ssmodels)
 
 #Importing packages here to apply the Hessian method. 
 library(numDeriv)
-library(flexsurv)
 ```
 
-## Data Loading
-
+## Data Loading and Cleaning
 ```{r pressure, echo=FALSE}
 #Loading in the Mroz87 dataset.
 dat = Mroz87
@@ -36,17 +34,18 @@ ls(dat)
 #?Mroz87
 #Getting a summary of Mroz87.
 summary(dat)
-#As suggested by Toomet and Henningsen (2008), we create the variable kids, an
+#As suggested by Toomet and Henningsen (2008), creating the variable kids, an
 #indicator for whether the family has any kids, so if the sum of kids5 and 
 #kids618 exceeds 0. 
 dat$kids = (dat$kids5 + dat$kids618 > 0)
+#Defining exper2 and age2 to be the square of exper and age respectively.
 dat$exper2 = dat$exper^2
 dat$age2 = dat$age^2
-
 ```
-## Exploratory Data Analysis adn Maximum Likelihood Estimation
+## Exploratory Data Analysis
 ```{r}
 #Tobit-2 model implementation taken from Rubio (2024).
+#Attaching dat
 attach(dat)
 #... for the selection process.
 dm.sel = cbind(exper, exper2, educ, city)
@@ -65,11 +64,23 @@ npar.sel = ncol(dm.sel); npar.obs = ncol(dm.obs)
 npar = npar.sel + 1 + npar.obs + 1 + 2
 
 #Exploratory data analysis
+#Getting a summary for the selection and observable processes' non-intercept 
+#covariates. 
 summary(dm.sel)
 summary(dm.obs)
 
-boxplot()
+boxplot(cbind(exper, educ), col = c("red", "blue"), 
+        main = "Selection Process", xlab = "Covariate")
+legend(x = "topright", legend = c("Work Experience (years)", 
+        "Education (years)"), col = c("red","blue"), pch = rep(16, 2))
+boxplot(age, col = c("green"), main = "Age", xlab = "Age", ylab = "Age (years)")
+boxplot(faminc, col = c("brown"), main = "Family Income", xlab = "Income", 
+        ylab = "USD(1975)")
+```
 
+## Fitting the Tobit-2 Model
+
+```{r}
 #Below is my implementation of the Tobit2 MLE, MLETobit2, from example 1. 
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observable model, sel, the responses 
@@ -350,15 +361,17 @@ abline(v = OPT$MLE[13], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 ################################################################################
-
 #Implementing the profile likelihood based interval for rho.
-intprof2 = Vectorize(function(par) prof2(par) - 0.147)
+#Defining our significance level, SL = 0.05
+SL = 0.05
+#Defining bound following Lemma 4.1 in my dissertation. 
+bound = exp(-0.5*qchisq(1-SL, df = 1))
+intprof2 = Vectorize(function(par) prof2(par) - bound)
 curve(intprof2, n = 100, from = 0.9, to = .9999)
 abline(h = 0.147)
-LP2 = uniroot(f = intprof2, interval = c(0.9, 0.99))$root
-UP2 = uniroot(f = intprof2, interval = c(0.991, 0.996))$root
-confint2.proflik = tanh(c(LP2, UP2))
-confint2.proflik
+LP = uniroot(f = intprof2, interval = c(0.9, 0.99))$root
+UP = uniroot(f = intprof2, interval = c(0.991, 0.996))$root
+confint2.proflik = tanh(c(LP, UP))
 
 ```
 
