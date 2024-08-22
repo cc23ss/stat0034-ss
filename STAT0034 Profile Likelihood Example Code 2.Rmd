@@ -1,5 +1,5 @@
 ---
-title: "Example 1 - Tobit-2 Model"
+title: "Example 2"
 output: html_document
 date: "2024-06-02"
 ---
@@ -264,7 +264,10 @@ prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1,
 #NOTE: This takes a long time to run. 
 curve(prof1, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
       ylab = "Profile Likelihood", main = "zero-nlminb")
-
+#Adding a line corresponding to the MLE.
+abline(v = OPT$MLE[1], col = "red", lwd = 2)
+#Adding a legend for clarity. 
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #par(mfrow = c(1, 2))
 
 #Perform the same procedure from above, but start with the MLE as an initial 
@@ -273,8 +276,9 @@ prof1a = Vectorize(function(par) prof.lik(parint = log(par), ind = 1,
   init = "MLE", method = "nlminb"))
 
 curve(prof1a, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
-      ylab = "Profile Likelihood", col = "red", main = "MLE-nlminb") 
-
+      ylab = "Profile Likelihood", col = "brown", main = "MLE-nlminb") 
+abline(v = OPT$MLE[1], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #Below commented out to streamline code (no change in results). 
 #Perform the same procedure as for prof1a, but this time using 100k iterations
 #instead of 10k to diagnose the roughness of the MLE profile likelihood curve. 
@@ -289,96 +293,132 @@ prof1c = Vectorize(function(par) prof.lik(parint = log(par), ind = 1,
   init = "MLE", method = "BFGS"))
 curve(prof1c, 1.2, 1.35, n = 50, lwd = 1, xlab = expression(sigma), 
       ylab = "Profile Likelihood", col = "blue", main = "MLE-BFGS")
-
+abline(v = OPT$MLE[1], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #par(mfrow = c(1, 1))
 
 #Performing the same procedure as in prof1a, except this time for rho.
 #Note that as we used a tanh link for the rho parameter, we need to invert the
 #transformation when plotting the profile likelihood.
+
+#par(mfrow = c(2,2))
+
 prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
                                     init = "MLE", method = "nlminb"))
-
-curve(prof2,-0.6, 0.25 , n = 50, lwd = 1, xlab = expression(atanh(rho)), 
+curve(prof2,-0.6, 0.25 , n = 50, lwd = 1, xlab = expression(rho), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", rho)))
-
+abline(v = OPT$MLE[2], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #Performing the same procedure here as well for beta_0, the intercept term for 
 #the observable process. 
 prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
 curve(prof3, 4.25, 6, n = 50, lwd = 1, xlab = expression(beta[0]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[0])))
+abline(v = OPT$MLE[3], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 #Performing the same procedure for all other parameters in the model. 
 prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE"))
-curve(prof4, 0.19, 0.22, n = 50, lwd = 1, xlab = expression(beta[1]), 
+curve(prof4, 0.15, 0.26, n = 50, lwd = 1, xlab = expression(beta[1]), 
       ylab = "Profile Likelihood",
       main = expression(paste("Profile Likelihood for ", beta[1])))
+abline(v = OPT$MLE[4], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE"))
-curve(prof5, 0.31, 0.37 , n = 50, lwd = 1, xlab = expression(beta[2]), 
+curve(prof5, 0.2, 0.5 , n = 50, lwd = 1, xlab = expression(beta[2]), 
       ylab = "Profile Likelihood",
       main = expression(paste("Profile Likelihood for ", beta[2])))
+abline(v = OPT$MLE[5], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE"))
 curve(prof6, 0.01, 0.02 , n = 50, lwd = 1, xlab = expression(beta[3]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[3])))
+abline(v = OPT$MLE[6], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof7= Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE"))
 curve(prof7, 0.19,0.22 , n = 50, lwd = 1, xlab = expression(beta[4]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[4])))
+abline(v = OPT$MLE[7], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE"))
-curve(prof4, 0.5, 0.55 , n = 50, lwd = 1, xlab = expression(beta[5]), 
+curve(prof8, 0.5, 0.55 , n = 50, lwd = 1, xlab = expression(beta[5]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[5])))
+abline(v = OPT$MLE[8], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE"))
-curve(prof4, -0.05, 0.05 , n = 50, lwd = 1, xlab = expression(beta[6]), 
+curve(prof9, -0.1, 0.1 , n = 50, lwd = 1, xlab = expression(beta[6]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[6])))
+abline(v = OPT$MLE[9], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
   
 prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE"))
 curve(prof10, -0.67, -0.66 , n = 50, lwd = 1, xlab = expression(alpha[0]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[0])))
+abline(v = OPT$MLE[10], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE"))
 curve(prof11, 0.08, 0.09 , n = 50, lwd = 1, xlab = expression(alpha[1]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[1])))
+abline(v = OPT$MLE[11], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE"))
 curve(prof12, 0.66, 0.67 , n = 50, lwd = 1, xlab = expression(alpha[2]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[2])))
+abline(v = OPT$MLE[12], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE"))
 curve(prof13, 0.06, 0.065, n = 50, lwd = 1, xlab = expression(alpha[3]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[3])))
+abline(v = OPT$MLE[13], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof14 = Vectorize(function(par) prof.lik(parint = par, ind = 14, init = "MLE"))
 curve(prof14, -0.365, -0.36 , n = 50, lwd = 1, xlab = expression(alpha[4]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[4])))
+abline(v = OPT$MLE[14], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof15 = Vectorize(function(par) prof.lik(parint = par, ind = 15, init = "MLE"))
 curve(prof15, 0.795, 0.8, n = 50, lwd = 1, xlab = expression(alpha[5]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[5])))
+abline(v = OPT$MLE[15], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof16 = Vectorize(function(par) prof.lik(parint = par, ind = 16, init = "MLE"))
 curve(prof16, 0.17, 0.175, n = 50, lwd = 1, xlab = expression(alpha[6]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[6])))
+abline(v = OPT$MLE[16], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof17 = Vectorize(function(par) prof.lik(parint = par, ind = 17, init = "MLE"))
 curve(prof17, 0.0025, 0.0029, n = 50, lwd = 1, xlab = expression(alpha[7]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[7])))
+abline(v = OPT$MLE[17], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+#par(mfrow = c(1,1))
 
 ```
 
@@ -399,7 +439,9 @@ curve(prof1, 1.20,1.35, n = 50, lwd = 1, xlab = expression(sigma), ylab =
         "Profile Likelihood")
 #... then adding the line corresponding to 0.147 to show the confidence interval
 #of interest. 
-abline(h = bound, lwd = 2, col = "red")
+abline(h = bound, lwd = 2, col = "blue")
+abline(v = OPT$MLE[1], col = "red", lwd = 2)
+legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 #Evaluating the lower and upper profile likelihood confidence interval, LP and
 #UP respectively, for a 0.147-confidence interval for sigma, using uniroot()

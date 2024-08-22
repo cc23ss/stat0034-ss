@@ -136,7 +136,7 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
   if(method == "nlminb"){ 
     OPT = nlminb(init, loglik, control = list(iter.max = maxit))
   }
-  #MODIFICATION- Conditional to evaluate the optimal value using the optim() 
+  #MODIFICATION - Conditional to evaluate the optimal value using the optim() 
   #function
   else{
     #Using optim to allow us to select our desired optimisation algorithm.
@@ -360,22 +360,9 @@ curve(prof13, n = 100, from = 0.01, to = 0.03, ylab = "Profile Likelihood",
 abline(v = OPT$MLE[13], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
-################################################################################
-#Implementing the profile likelihood based interval for rho.
-#Defining our significance level, SL = 0.05
-SL = 0.05
-#Defining bound following Lemma 4.1 in my dissertation. 
-bound = exp(-0.5*qchisq(1-SL, df = 1))
-intprof2 = Vectorize(function(par) prof2(par) - bound)
-curve(intprof2, n = 100, from = 0.9, to = .9999)
-abline(h = 0.147)
-LP = uniroot(f = intprof2, interval = c(0.9, 0.99))$root
-UP = uniroot(f = intprof2, interval = c(0.991, 0.996))$root
-confint2.proflik = tanh(c(LP, UP))
-
 ```
 
-## Applying the Hessian Method + Bootstrapped Hessian
+## Applying the Hessian Method
 ```{r}
 #Performing the procedure as described in Cole (2020), pp. 72-73.
 #Evaluating the Hessian at the numerically-obtained MLE. 
@@ -430,6 +417,24 @@ for (i in 1:B){
 #Getting the sample proportion of parameter-redundant numerical models as the 
 #mean of the indHess vector. 
 mean(indHess)
+```
+## Creating Confidence Intervals
+
+```{r}
+
+#Implementing the profile likelihood based interval for sigma.
+#Defining our significance level, SL = 0.05
+SL = 0.05
+#Defining bound following Lemma 4.1 in my dissertation. 
+bound = exp(-0.5*qchisq(1-SL, df = 1))
+intprof1 = Vectorize(function(par) prof2(par) - bound)
+curve(intprof1, n = 100, from = 4, to = 5)
+abline(h = 0.147)
+
+LP = uniroot(f = intprof2, interval = c(0.9, 0.99))$root
+UP = uniroot(f = intprof2, interval = c(0.991, 0.996))$root
+confint1.proflik = exp(c(LP, UP))
+
 
 #MODIFICATION: Bootstrapped confidence intervals. 
 
