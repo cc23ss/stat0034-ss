@@ -197,7 +197,7 @@ coef(HMLE)
 ssMLE = selection(selectEq, obsEq)
 summary(ssMLE)
 
-#Repeating the same analysis as above, this time
+#Repeating the same analysis as above, this time with the 2-step estimator. 
 ssMLE.2step = selection(selectEq, obsEq, data = MEPS2001, method = "2step")
 coef(ssMLE.2step)
 ```
