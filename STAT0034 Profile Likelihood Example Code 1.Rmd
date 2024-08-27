@@ -51,9 +51,8 @@ alpha = c(1.5, 2, 3)
 #Defining our Tobit-2 Model here, taken from example 1.
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observed model, sel, the responses 
-#of the selection model, deso, the design matrix for the observed model, less the 
-#first column, dess, the design matrix for the selection process less the first 
-#column, method, the optimisation method, and maxit, the maximum number of 
+#of the selection model, deso, the design matrix for the observed model, less 
+#the first column, dess, the design matrix for the selection process less the #first column, method, the optimisation method, and maxit, the maximum number of 
 #iterations, with default number 100.
 MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
                      method = "nlminb", maxit = 100){

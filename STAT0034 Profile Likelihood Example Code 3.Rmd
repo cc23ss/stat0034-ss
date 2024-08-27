@@ -69,6 +69,7 @@ npar = npar.sel + 1 + npar.obs + 1 + 2
 summary(dm.sel)
 summary(dm.obs)
 
+#Plotting boxplots for 
 boxplot(cbind(exper, educ), col = c("red", "blue"), 
         main = "Selection Process", xlab = "Covariate")
 legend(x = "topright", legend = c("Work Experience (years)", 
@@ -76,6 +77,13 @@ legend(x = "topright", legend = c("Work Experience (years)",
 boxplot(age, col = c("green"), main = "Age", xlab = "Age", ylab = "Age (years)")
 boxplot(faminc, col = c("brown"), main = "Family Income", xlab = "Income", 
         ylab = "USD(1975)")
+
+#Getting the proportion of city, kids and missingness as 1 - lfp, labour force 
+#participation. 
+
+mean(city)
+mean(kids)
+1-mean(lfp)
 ```
 
 ## Fitting the Tobit-2 Model
@@ -178,7 +186,7 @@ obsEq = wage ~ exper + I(exper^2) + educ + city
 selectEq = lfp ~ age + I(age^2) + faminc + kids + educ
 
 ssMLE = selection(selectEq, obsEq, data = dat, method = "ml")
-ssMLE
+-ssMLE
 
 #Also comparing against the results of the 2-step estimator.
 ssMLE.2step = selection(selectEq, obsEq, data = dat, method = "2step")
@@ -241,19 +249,15 @@ prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb
   #This returns the profile likelihood. 
   return(exp(out))
 }
-```
 
-## Profile Likelihood 
-
-```{r}
 #This is specifically for the degenerate example. 
 #Creating the Vectorize() object prof1degen to dynamically evaluate the 
 #Profile likelihood. 
 prof1degen = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
                                          init = "zero", method = "nlminb"))
 #Using the curve() function to plot out the profile likelihood. 
-curve(prof1degen, n = 100, from = 0.01, to = 1, ylab = "Profile Likelihood", 
-      xlab = expression(sigma))
+curve(prof1degen, n = 100, from = 0.01, to = 1.1, ylab = "Profile Likelihood", 
+      xlab = expression(sigma), main = expression(paste()))
 #Adding a line to signify the MLE. 
 abline(v = OPT$MLE[1], col = "red", lwd = 2)
 #Adding a legend for clarity. 
@@ -271,94 +275,118 @@ MLE = OPT$MLE
 #Tobit-2 model using initial point 1 in all dimensions (OPT2). 
 prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
                                          init = "MLE", method = "nlminb"))
-curve(prof1, n = 100, from = 4, to = 5, ylab = "Profile Likelihood", xlab = 
-        expression(sigma))
+curve(prof1, n = 100, from = 3, to = 5, ylab = "Profile Likelihood", 
+      xlab = expression(sigma), 
+      main = expression(paste("Profile Likelihood for ", sigma)))
 abline(v = OPT$MLE[1], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+#par(mfrow = c(2,2))
 
 prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
                                           init = "MLE", method = "CG"))
 curve(prof2, n = 100, from = 0.9, to = 0.9999, ylab = "Profile Likelihood", 
-      xlab = expression(rho))
+      xlab = expression(rho), 
+      main = expression(paste("Profile Likelihood for ", rho)))
 abline(v = OPT$MLE[2], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE",
                                          method = "nlminb"))
-curve(prof3, n = 100, from = -10, to = -9, ylab = "Profile Likelihood", 
-      xlab = expression(beta[0]))
+curve(prof3, n = 100, from = -11, to = -9, ylab = "Profile Likelihood", 
+      xlab = expression(beta[0]),
+      main = expression(paste("Profile Likelihood for ", beta[0])))
 abline(v = OPT$MLE[3], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE",
                                          method = "nlminb"))
-curve(prof4, n = 100, from = -0.1, to = 0.16, ylab = "Profile Likelihood", 
-      xlab = expression(beta[1]))
+curve(prof4, n = 100, from = -1, to = 1.6, ylab = "Profile Likelihood", 
+      xlab = expression(beta[1]),
+      main = expression(paste("Profile Likelihood for ", beta[1])))
 abline(v = OPT$MLE[4], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE",
                                          method = "nlminb"))
-curve(prof5, n = 100, from = -0.1, to = 0.1, ylab = "Profile Likelihood", 
-      xlab = expression(beta[2]))
+curve(prof5, n = 100, from = -0.02, to = 0.02, ylab = "Profile Likelihood", 
+      xlab = expression(beta[2]),
+      main = expression(paste("Profile Likelihood for ", beta[2])))
 abline(v = OPT$MLE[5], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE",
                                          method = "nlminb"))
-curve(prof6, n = 200, from = -0.002, to = 0.001, ylab = "Profile Likelihood", 
-      xlab = expression(beta[3]))
+curve(prof6, n = 200, from = -0.0002, to = 0.0001, ylab = "Profile Likelihood", 
+      xlab = expression(beta[3]),
+      main = expression(paste("Profile Likelihood for ", beta[3])))
 abline(v = OPT$MLE[6], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof7 = Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE",
                                          method = "nlminb"))
-curve(prof7, n = 100, from = -0.5, to = 0.5, ylab = "Profile Likelihood", 
-      xlab = expression(beta[4]))
+curve(prof7, n = 100, from = -1, to = 0.5, ylab = "Profile Likelihood", 
+      xlab = expression(beta[4]),
+      main = expression(paste("Profile Likelihood for ", beta[4])))
 abline(v = OPT$MLE[7], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE",
                                          method = "nlminb"))
 curve(prof8, n = 100, from = 0, to = 1, ylab = "Profile Likelihood", 
-      xlab = expression(beta[5]))
+      xlab = expression(beta[5]),
+      main = expression(paste("Profile Likelihood for ", beta[5])))
 abline(v = OPT$MLE[8], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+#e.g. of challenging optimisation here.
+# prof8alt = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE",
+#                                          method = "BFGS"))
+# curve(prof8alt, n = 100, from = 0.5, to = 0.7, ylab = "Profile Likelihood", 
+#       xlab = expression(beta[5]),
+#       main = expression(paste("Profile Likelihood for ", beta[5])))
 
 prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE",
                                          method = "nlminb"))
 curve(prof9, n = 100, from = -2, to = -1, ylab = "Profile Likelihood", 
-      xlab = expression(alpha[0]))
+      xlab = expression(alpha[0]),
+      main = expression(paste("Profile Likelihood for ", alpha[0])))
 abline(v = OPT$MLE[9], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE",
                                          method = "nlminb"))
-curve(prof10, n = 100, from = 0, to = 0.2, ylab = "Profile Likelihood", 
-      xlab = expression(alpha[1]))
+curve(prof10, n = 100, from = -0.05, to = 0.05, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[1]),
+      main = expression(paste("Profile Likelihood for ", alpha[1])))
 abline(v = OPT$MLE[10], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE",
                                          method = "nlminb"))
-curve(prof11, n = 100, from = -0.001, to = 0, ylab = "Profile Likelihood", 
-      xlab = expression(alpha[2]))
+curve(prof11, n = 100, from = -0.001, to = 0.001, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[2]),
+      main = expression(paste("Profile Likelihood for ", alpha[2])))
 abline(v = OPT$MLE[11], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE",
                                          method = "nlminb"))
-curve(prof12, n = 100, from = 0.14, to = 0.15, ylab = "Profile Likelihood", 
-      xlab = expression(alpha[3]))
+curve(prof12, n = 100, from = 0.1, to = 0.2, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[3]),
+      main = expression(paste("Profile Likelihood for ", alpha[3])))
 abline(v = OPT$MLE[12], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE",
                                          method = "nlminb"))
-curve(prof13, n = 100, from = 0.01, to = 0.03, ylab = "Profile Likelihood", 
-      xlab = expression(alpha[4]))
+curve(prof13, n = 100, from = -0.5, to = 0.5, ylab = "Profile Likelihood", 
+      xlab = expression(alpha[4]),
+      main = expression(paste("Profile Likelihood for ", alpha[4])))
 abline(v = OPT$MLE[13], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+
+#par(mfrow = c(1,1))
 
 ```
 
@@ -378,6 +406,8 @@ sev
 #Checking if the larges reference value is lower than the 0.001 threshold. 
 sev[1] < 0.001
 
+#Setting the seed here to be 1111 for replicability.
+set.seed(1111)
 #Below is the implementation for the Bootstrap on the Hessian method adapted 
 #from Rubio, Espindola and Montoya (2023).
 #Defining the number of bootstrap samples, B, to be 1000. 
@@ -402,8 +432,7 @@ for (i in 1:B){
   MLE.B[i, ] = c(exp(OPTB$OPT$par[1]), tanh(OPTB$OPT$par[2]), 
                  OPTB$OPT$par[-c(1:2)])
   #The following code is just the implementation from above of the Hessian 
-  #method - to avoid bloat, please refer to the comments from the preceeding
-  #section.
+  #method - to avoid bloat, refer to the comments from the preceeding section.
   
   #This was originally a bug, where it evaluated the hessian using the wrong 
   #optimised output - I found it, and this is mentioned in the corresponding 
@@ -422,36 +451,99 @@ mean(indHess)
 
 ```{r}
 
-#Implementing the profile likelihood based interval for sigma.
+#Implementing the profile likelihood based interval for sigma (inspired by
+#Rubio (2024)).
 #Defining our significance level, SL = 0.05
 SL = 0.05
 #Defining bound following Lemma 4.1 in my dissertation. 
 bound = exp(-0.5*qchisq(1-SL, df = 1))
-intprof1 = Vectorize(function(par) prof2(par) - bound)
-curve(intprof1, n = 100, from = 4, to = 5)
-abline(h = 0.147)
+#Defining intprof1 as the pro
+#Evaluating the lower bound and upper bound using the uniroot() function as LP
+#and UP respectuvely.
+intprof1 = Vectorize(function(sigma) prof1(sigma) - bound)
+LP = uniroot(f = intprof1, interval = c(3.7, 4.1))$root
+UP = uniroot(f = intprof1, interval = c(4.2, 4.5))$root
+#Reversing the log link for sigma to get the profile likelihood confidence 
+#interval, confint1.proflik
+confint1.proflik = c(LP, UP)
 
-LP = uniroot(f = intprof2, interval = c(0.9, 0.99))$root
-UP = uniroot(f = intprof2, interval = c(0.991, 0.996))$root
-confint1.proflik = exp(c(LP, UP))
+#Performing the LP-UP procedure again for all remaining parameters, as in 
+#Example 2. 
 
+#This will be done iteratively, so we define the vectors LPVec and UPVec
+#just as in Example 2, with length p-1 each. 
 
+LPVec = rep(NA, p-1)
+UPVec = rep(NA, p-1)
+#NOTE FOR RHO - We also invert the tanh link here. 
+intprof2 = Vectorize(function(rho) prof2(rho) - bound)
+LPVec[1] = uniroot(f = intprof2, interval = c(0.98, 0.99))$root
+UPVec[1] = uniroot(f = intprof2, interval = c(0.99, 0.999999))$root
+
+confint2.proflink = c(LPVec[1], UPVec[1])
+
+intprof3 = Vectorize(function(beta) prof3(beta) - bound)
+LPVec[2] = uniroot(f = intprof3, interval = c(-10.5, -10))$root
+UPVec[2] = uniroot(f = intprof3, interval = c(-9.8, -9.5))$root
+
+intprof4 = Vectorize(function(beta) prof4(beta) - bound)
+LPVec[3] = uniroot(f = intprof4, interval = c(-0.3, 0.0))$root
+UPVec[3] = uniroot(f = intprof4, interval = c(0.2, 0.5))$root
+
+intprof5 = Vectorize(function(beta) prof5(beta) - bound)
+LPVec[4] = uniroot(f = intprof5, interval = c(-0.01, -0.005))$root
+UPVec[4] = uniroot(f = intprof5, interval = c(0, 0.03))$root
+
+intprof6 = Vectorize(function(beta) prof6(beta) - bound)
+LPVec[5] = uniroot(f = intprof6, interval = c(0, 0.00003))$root
+UPVec[5] = uniroot(f = intprof6, interval = c(0.00005, 0.0001))$root
+
+intprof7 = Vectorize(function(beta) prof7(beta) - bound)
+LPVec[6] = uniroot(f = intprof7, interval = c(-0.7, -0.5))$root
+UPVec[6] = uniroot(f = intprof7, interval = c(-0.3, 0))$root
+
+intprof8 = Vectorize(function(beta) prof8(beta) - bound)
+LPVec[7] = uniroot(f = intprof8, interval = c(0.3, 0.5))$root
+UPVec[7] = uniroot(f = intprof8, interval = c(0.7, 0.8))$root
+
+intprof9 = Vectorize(function(alpha) prof9(alpha) - bound)
+LPVec[8] = uniroot(f = intprof9, interval = c(-1.9, -1.8))$root
+UPVec[8] = uniroot(f = intprof9, interval = c(-1.8, -1.7))$root
+
+intprof10 = Vectorize(function(alpha) prof10(alpha) - bound)
+LPVec[9] = uniroot(f = intprof10, interval = c(-0.01, 0.01))$root
+UPVec[9] = uniroot(f = intprof10, interval = c(0.01, 0.02))$root
+
+intprof11 = Vectorize(function(alpha) prof11(alpha) - bound)
+LPVec[10] = uniroot(f = intprof11, interval = c(-0.0005, -0.0004))$root
+UPVec[10] = uniroot(f = intprof11, interval = c(-0.0003, 0))$root
+
+intprof12 = Vectorize(function(alpha) prof12(alpha) - bound)
+LPVec[11] = uniroot(f = intprof12, interval = c(0.14, 0.145))$root
+UPVec[11] = uniroot(f = intprof12, interval = c(0.15, 0.16))$root
+
+intprof13 = Vectorize(function(alpha) prof13(alpha) - bound)
+LPVec[12] = uniroot(f = intprof13, interval = c(-0.2, 0))$root
+UPVec[12] = uniroot(f = intprof13, interval = c(0.05, 0.1))$root
+
+for(i in 2:length(LPVec)){
+  assign(paste("confint", i+1, ".proflik", sep = ""), c(LPVec[i], UPVec[i]))
+}
 #MODIFICATION: Bootstrapped confidence intervals. 
+
+#Just in case, setting seed for replicability. 
+set.seed(1111)
 
 #Running a for loop which creates numerical central 95% percentiles for each 
 #MLE using the quantile() function, and assigning it with the assign function()
 #to dynamically create variables confint"par number". 
-
-#Note this is done for all parameters instead of the above profile-confidence 
-#interval as this is purely from the bootstrapped sample. 
 for (i in 1:length(MLE)){
   assign(paste("confint.boot.", i, sep = ""), 
          quantile(MLE.B[, i], probs = c(0.025, 0.975)))
 }
 
-#The following is imported from Example 2, and is used to compare confidence 
-#intervals, against the ones we found above. The ones below are Bias Corrected- 
-#Accelerated confidence intervals, which are NOT central but cover a 95% region. 
+#The following is the implemetation for Bias Corrected-Accelerated confidence 
+#intervals. 
 #This follows the methods introduced throughout DiCiccio and Efron (1996).
 
 #Defining n to be the number of observations(rows in the dat dataframe).
@@ -459,16 +551,14 @@ n = nrow(dat)
 
 #Evaluating the Jackknife influence functions so we can evaluate a.hat.
 #The Jackknife is used to estimate the acceleration parameter, as defined in 
-#DiCiccio and Efron (1996) - we use the definition on page 201 as it does not
-#require any derivative or limit evaluations. 
+#DiCiccio and Efron (1996).
 
 jackknives = matrix(nrow = n, ncol = length(MLE))
 
 #We do this iteratively. 
 #WARNING: This loop takes a long time to run - around 15-20 minutes. 
-#This is due to how the Jackknife is calculated.
-#Unfortunately, this means that there is nothing which can be done to remedy 
-#this problem, apart from getting a very powerful device. 
+#This is due to how the Jackknife is calculated, and there is no possible
+#optimisation unfortunately.
 
 for (i in 1:n){
   #Getting the MLEs for the Tobit-2 model, omitting the ith observation, and 
@@ -480,6 +570,7 @@ for (i in 1:n){
   #Getting the MLEs without i, as detailed above in the regular case. 
   MLE_i = c(exp(OPTB$OPT$par[1]), tanh(OPTB$OPT$par[2]), 
                OPTB$OPT$par[-c(1:2)])
+  #Evaluating the Jackknife.
   jackknives[i, ] = (n-1)*(MLE - MLE_i)
 }
 
@@ -514,5 +605,4 @@ for (i in 1:length(MLE)){
   assign(paste("confint.bc_a", i, sep = ""), BC_a.ci(B, MLE, i, 0.05, MLE.B, 
                                                     jackknives))
 }
-
 ```

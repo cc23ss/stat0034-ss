@@ -302,7 +302,6 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #transformation when plotting the profile likelihood.
 
 #par(mfrow = c(2,2))
-
 prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
                                     init = "MLE", method = "nlminb"))
 curve(prof2,-0.6, 0.25 , n = 50, lwd = 1, xlab = expression(rho), 
@@ -320,6 +319,8 @@ abline(v = OPT$MLE[3], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 #Performing the same procedure for all other parameters in the model. 
+#WARNING: Each graph takes a long time (5-10 minutes) to plot. Execute at your
+#own risk. 
 prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE"))
 curve(prof4, 0.15, 0.26, n = 50, lwd = 1, xlab = expression(beta[1]), 
       ylab = "Profile Likelihood",
@@ -335,84 +336,84 @@ abline(v = OPT$MLE[5], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE"))
-curve(prof6, 0.01, 0.02 , n = 50, lwd = 1, xlab = expression(beta[3]), 
+curve(prof6, -0.04, 0.08 , n = 50, lwd = 1, xlab = expression(beta[3]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[3])))
 abline(v = OPT$MLE[6], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof7= Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE"))
-curve(prof7, 0.19,0.22 , n = 50, lwd = 1, xlab = expression(beta[4]), 
+curve(prof7, -0.5,0.1 , n = 50, lwd = 1, xlab = expression(beta[4]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[4])))
 abline(v = OPT$MLE[7], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE"))
-curve(prof8, 0.5, 0.55 , n = 50, lwd = 1, xlab = expression(beta[5]), 
+curve(prof8, 0.44, 0.64 , n = 50, lwd = 1, xlab = expression(beta[5]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[5])))
 abline(v = OPT$MLE[8], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE"))
-curve(prof9, -0.1, 0.1 , n = 50, lwd = 1, xlab = expression(beta[6]), 
+curve(prof9, -0.15, 0.15 , n = 50, lwd = 1, xlab = expression(beta[6]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", beta[6])))
 abline(v = OPT$MLE[9], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
   
 prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE"))
-curve(prof10, -0.67, -0.66 , n = 50, lwd = 1, xlab = expression(alpha[0]), 
+curve(prof10, -1.5, 0.5 , n = 50, lwd = 1, xlab = expression(alpha[0]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[0])))
 abline(v = OPT$MLE[10], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE"))
-curve(prof11, 0.08, 0.09 , n = 50, lwd = 1, xlab = expression(alpha[1]), 
+curve(prof11, 0, 0.18, n = 50, lwd = 1, xlab = expression(alpha[1]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[1])))
 abline(v = OPT$MLE[11], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE"))
-curve(prof12, 0.66, 0.67 , n = 50, lwd = 1, xlab = expression(alpha[2]), 
+curve(prof12, 0.2, 1 , n = 50, lwd = 1, xlab = expression(alpha[2]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[2])))
 abline(v = OPT$MLE[12], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE"))
-curve(prof13, 0.06, 0.065, n = 50, lwd = 1, xlab = expression(alpha[3]), 
+curve(prof13, 0, 0.2, n = 50, lwd = 1, xlab = expression(alpha[3]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[3])))
 abline(v = OPT$MLE[13], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof14 = Vectorize(function(par) prof.lik(parint = par, ind = 14, init = "MLE"))
-curve(prof14, -0.365, -0.36 , n = 50, lwd = 1, xlab = expression(alpha[4]), 
+curve(prof14, -0.6, -0.1 , n = 50, lwd = 1, xlab = expression(alpha[4]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[4])))
 abline(v = OPT$MLE[14], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof15 = Vectorize(function(par) prof.lik(parint = par, ind = 15, init = "MLE"))
-curve(prof15, 0.795, 0.8, n = 50, lwd = 1, xlab = expression(alpha[5]), 
+curve(prof15, 0.4, 1.2, n = 50, lwd = 1, xlab = expression(alpha[5]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[5])))
 abline(v = OPT$MLE[15], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof16 = Vectorize(function(par) prof.lik(parint = par, ind = 16, init = "MLE"))
-curve(prof16, 0.17, 0.175, n = 50, lwd = 1, xlab = expression(alpha[6]), 
+curve(prof16, -0.2, 0.4, n = 50, lwd = 1, xlab = expression(alpha[6]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[6])))
 abline(v = OPT$MLE[16], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof17 = Vectorize(function(par) prof.lik(parint = par, ind = 17, init = "MLE"))
-curve(prof17, 0.0025, 0.0029, n = 50, lwd = 1, xlab = expression(alpha[7]), 
+curve(prof17, -0.01, 0.01, n = 50, lwd = 1, xlab = expression(alpha[7]), 
       ylab = "Profile Likelihood", 
       main = expression(paste("Profile Likelihood for ", alpha[7])))
 abline(v = OPT$MLE[17], col = "red", lwd = 2)
@@ -431,6 +432,7 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 SL = 0.05
 #Defining bound following Lemma 4.1 in my dissertation. 
 bound = exp(-0.5*qchisq(1-SL, df = 1))
+################################################################################
 #Vectorise a shifted version of the sigma parameter (parameter 2), to create a
 #0.147-profile likelihood confidence interval - see Chapter 4 for more details.
 intprof1 = Vectorize(function(sigma) prof1(sigma) - bound)
@@ -449,9 +451,90 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 LP = uniroot(f = intprof1, interval = c(1.20,1.25))$root
 UP = uniroot(f = intprof1, interval = c(1.30,1.35))$root
 
-#Getting a 0.147-profile likelihood confidence interval, which is equivalent to 
-#a 0.95-confidence interval. 
-c(LP, UP)
+profint1 = exp(c(LP, UP))
+
+#Repeating this with all other parameters (without plotting - that would be too
+#cumbersome)
+
+#NOTE: For rho, we take the implementation from Rubio (2023)
+intprof2 = Vectorize(function(rho) prof2(rho) - bound)
+LP2 = uniroot(f = intprof2, interval = c(-0.5, -0.4))$root
+UP2 = uniroot(f = intprof2, interval = c(0.1, 0.2))$root
+
+profint2 = tanh(c(LP2, UP2))
+#For the rest, we create 2 vectors; LPvec, UPvec, to store all the interval 
+#bounds. This will allow us to iteratively assign the confidence intervals all 
+#at once.
+LPvec = rep(NA, p-2)
+UPvec = rep(NA, p-2)
+
+intprof3 = Vectorize(function(beta) prof3(beta) - bound)
+LPvec[1] = uniroot(f = intprof3, interval = c(4.5, 5))$root
+UPvec[1] = uniroot(f = intprof3, interval = c(5.1, 5.7))$root
+
+intprof4 = Vectorize(function(beta) prof4(beta) - bound)
+LPvec[2] = uniroot(f = intprof4, interval = c(0.16, 0.18))$root
+UPvec[2] = uniroot(f = intprof4, interval = c(0.24, 0.26))$root
+
+intprof5 = Vectorize(function(beta) prof5(beta) - bound)
+LPvec[3] = uniroot(f = intprof5, interval = c(0.2, 0.25))$root
+UPvec[3] = uniroot(f = intprof5, interval = c(0.43, 0.5))$root
+
+intprof6 = Vectorize(function(beta) prof6(beta) - bound)
+LPvec[4] = uniroot(f = intprof6, interval = c(-0.01, 0.01))$root
+UPvec[4] = uniroot(f = intprof6, interval = c(0.03, 0.05))$root
+
+intprof7 = Vectorize(function(beta) prof7(beta) - bound)
+LPvec[5] = uniroot(f = intprof7, interval = c(-0.5, -0.3))$root
+UPvec[5] = uniroot(f = intprof7, interval = c(-0.15,0))$root
+
+intprof8 = Vectorize(function(beta) prof8(beta) - bound)
+LPvec[6] = uniroot(f = intprof8, interval = c(0.4, 0.48))$root
+UPvec[6] = uniroot(f = intprof8, interval = c(0.57, 0.62))$root
+
+intprof9 = Vectorize(function(beta) prof9(beta) - bound)
+LPvec[7] = uniroot(f = intprof9, interval = c(-0.18, -0.1))$root
+UPvec[7] = uniroot(f = intprof9, interval = c(0.05, 1))$root
+
+intprof10 = Vectorize(function(alpha) prof10(alpha) - bound)
+LPvec[8] = uniroot(f = intprof10, interval = c(-1.2, -0.8))$root
+UPvec[8] = uniroot(f = intprof10, interval = c(-0.4, -0.1))$root
+
+intprof11 = Vectorize(function(alpha) prof11(alpha) - bound)
+LPvec[9] = uniroot(f = intprof11, interval = c(0, 0.045))$root
+UPvec[9] = uniroot(f = intprof11, interval = c(0.12, 0.16))$root
+
+intprof12 = Vectorize(function(alpha) prof12(alpha) - bound)
+LPvec[10] = uniroot(f = intprof12, interval = c(0.45, 0.6))$root
+UPvec[10] = uniroot(f = intprof12, interval = c(0.72, 0.8))$root
+
+intprof13 = Vectorize(function(alpha) prof13(alpha) - bound)
+LPvec[11] = uniroot(f = intprof13, interval = c(0.02, 0.045))$root
+UPvec[11] = uniroot(f = intprof13, interval = c(0.06, 0.1))$root
+
+intprof14 = Vectorize(function(alpha) prof14(alpha) - bound)
+LPvec[12] = uniroot(f = intprof14, interval = c(-0.55, -0.45))$root
+UPvec[12] = uniroot(f = intprof14, interval = c(-0.28, -0.22))$root
+
+intprof15 = Vectorize(function(alpha) prof15(alpha) - bound)
+LPvec[13] = uniroot(f = intprof15, interval = c(0.6, 0.7))$root
+UPvec[13] = uniroot(f = intprof15, interval = c(0.9, 1))$root
+
+intprof16 = Vectorize(function(alpha) prof16(alpha) - bound)
+LPvec[14] = uniroot(f = intprof16, interval = c(0, 0.05))$root
+UPvec[14] = uniroot(f = intprof16, interval = c(0.28, 0.34))$root
+
+intprof17 = Vectorize(function(alpha) prof17(alpha) - bound)
+LPvec[15] = uniroot(f = intprof17, interval = c(0, 0.0015))$root
+UPvec[15] = uniroot(f = intprof17, interval = c(0.004, 0.006))$root
+
+#Using a for loop to get all of the confidence intervals desired, iterating over
+#the length of UPvec. 
+
+for (i in 1:length(UPvec)){
+  assign(paste("profint", i+2, sep = ""), value = c(LPvec[i], UPvec[i]))
+}
+
 ```
 
 ### Hessian Method
@@ -462,8 +545,8 @@ c(LP, UP)
 hess.model = -hessian(func = OPT$loglik, x = OPT$OPT$par)
 #Getting the Hessian's eigenvalues.
 eigen.vals = eigen(hess.model)$values
-#Getting the reference values as defined in Cole (2020) and in Chapter 5 of the 
-#Dissertation.
+#Getting the reference values as defined in Cole (2020) and in Chapter 5 of 
+#the Dissertation.
 ref.vals = abs(as.vector(eigen.vals))/max(abs(as.vector(eigen.vals)))
 #Getting sev as the sorted vector of reference values. 
 sev = sort(ref.vals)
