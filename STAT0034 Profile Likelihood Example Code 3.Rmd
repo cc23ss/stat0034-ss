@@ -254,10 +254,10 @@ prof.lik = function(parint, ind, init = "zero", max.iter = 1E4, method = "nlminb
 #Creating the Vectorize() object prof1degen to dynamically evaluate the 
 #Profile likelihood. 
 prof1degen = Vectorize(function(par) prof.lik(parint = log(par), ind = 1, 
-                                         init = "zero", method = "nlminb"))
+                                         init = "MLE", method = "nlminb"))
 #Using the curve() function to plot out the profile likelihood. 
 curve(prof1degen, n = 100, from = 0.01, to = 1.1, ylab = "Profile Likelihood", 
-      xlab = expression(sigma), main = expression(paste()))
+      xlab = expression(sigma), main = "zero-nlminb")
 #Adding a line to signify the MLE. 
 abline(v = OPT$MLE[1], col = "red", lwd = 2)
 #Adding a legend for clarity. 
@@ -277,7 +277,7 @@ prof1 = Vectorize(function(par) prof.lik(parint = log(par), ind = 1,
                                          init = "MLE", method = "nlminb"))
 curve(prof1, n = 100, from = 3, to = 5, ylab = "Profile Likelihood", 
       xlab = expression(sigma), 
-      main = expression(paste("Profile Likelihood for ", sigma)))
+      main = "one-nlminb")
 abline(v = OPT$MLE[1], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
@@ -309,7 +309,7 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE",
                                          method = "nlminb"))
-curve(prof5, n = 100, from = -0.02, to = 0.02, ylab = "Profile Likelihood", 
+curve(prof5, n = 100, from = -0.01, to = 0.01, ylab = "Profile Likelihood", 
       xlab = expression(beta[2]),
       main = expression(paste("Profile Likelihood for ", beta[2])))
 abline(v = OPT$MLE[5], col = "red", lwd = 2)
