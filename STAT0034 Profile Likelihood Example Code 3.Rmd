@@ -94,7 +94,7 @@ mean(kids)
 #evaluated from, out, the responses of the observable model, sel, the responses 
 #of the selection model, deso, the design matrix for the observable model, less 
 #the first column, dess, the design matrix for the selection process less the 
-#first column, method, the optimisation method, and maxit, the maximum number of 
+#first column, method, the optimisation method, and maxit, the maximum number of
 #iterations, with default number 100.
 
 MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
@@ -265,7 +265,7 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 ################################################################################
 #Performing the same definitions as in the previous snippet, but using OPT2 this
-#Time.
+#time.
 OPT = OPT2
 p = length(OPT$MLE)
 ML = OPT$OPT$objective
@@ -465,7 +465,7 @@ LP = uniroot(f = intprof1, interval = c(3.7, 4.1))$root
 UP = uniroot(f = intprof1, interval = c(4.2, 4.5))$root
 #Reversing the log link for sigma to get the profile likelihood confidence 
 #interval, confint1.proflik
-confint1.proflik = c(LP, UP)
+confint1.proflik = exp(c(LP, UP))
 
 #Performing the LP-UP procedure again for all remaining parameters, as in 
 #Example 2. 
@@ -480,7 +480,7 @@ intprof2 = Vectorize(function(rho) prof2(rho) - bound)
 LPVec[1] = uniroot(f = intprof2, interval = c(0.98, 0.99))$root
 UPVec[1] = uniroot(f = intprof2, interval = c(0.99, 0.999999))$root
 
-confint2.proflink = c(LPVec[1], UPVec[1])
+confint2.proflink = tanh(c(LPVec[1], UPVec[1]))
 
 intprof3 = Vectorize(function(beta) prof3(beta) - bound)
 LPVec[2] = uniroot(f = intprof3, interval = c(-10.5, -10))$root
