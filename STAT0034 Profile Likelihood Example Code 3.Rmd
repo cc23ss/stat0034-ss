@@ -474,7 +474,7 @@ intprof2 = Vectorize(function(rho) prof2(rho) - bound)
 LPVec[1] = uniroot(f = intprof2, interval = c(0.98, 0.99))$root
 UPVec[1] = uniroot(f = intprof2, interval = c(0.99, 0.999999))$root
 
-confint2.proflink = tanh(c(LPVec[1], UPVec[1]))
+confint2.proflik = tanh(c(LPVec[1], UPVec[1]))
 
 intprof3 = Vectorize(function(beta) prof3(beta) - bound)
 LPVec[2] = uniroot(f = intprof3, interval = c(-10.5, -10))$root
