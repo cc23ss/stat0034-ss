@@ -194,7 +194,7 @@ ssMLE.2step
 
 #NOTE: Starting point is set at the MLE of the selection process.
 HMLE = HeckmanCL(selectEq, obsEq, data = dat, start = coef(ssMLE))
-HMLE$loglik
+-HMLE$loglik
 
 ssMLE.zero = selection(selectEq, obsEq, start = c(rep(0, 11), 0.5, 0.9), 
                        data = dat)
