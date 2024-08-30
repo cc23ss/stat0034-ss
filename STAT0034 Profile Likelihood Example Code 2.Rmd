@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Formulation of the Tobit-2 log-likelihood (Ch. 2)
 
 ```{r}
-#The following implementation was taken from Rubio (2024).
+#The following implementation was taken from Rubio (2024a).
 #ADDITION: setting the seed for replicability. 
 set.seed(1111)
 #Importing the sampleSelection (Toomet and Henningsen (2011)) package - This is the focal package of my dissertation. 
