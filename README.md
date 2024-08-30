@@ -10,4 +10,6 @@ The following packages MUST be installed before use for the code to run:
 - numDeriv
 - mvtnorm
 
-NOTE: The bibliographies do follow the Harvard Style but are incomplete. I have left the references in the .rmd files for completeness, but for a comprehensive citation please look at my dissertation. 
+NOTES: 
+1. The bibliographies do follow the Harvard Style but are incomplete. I have left the references in the .rmd files for completeness, but for a comprehensive citation please look at my dissertation. 
+2. No author is provided for anonymity. 
