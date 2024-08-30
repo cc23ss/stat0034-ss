@@ -1,9 +1,11 @@
 ---
-title: "Example 3"
+title: "Example 3 - Degenerate Example"
 output: html_document
 date: "2024-07-07"
 bibliography: "references3.bib"
-citation_package: biblatex
+csl: ucl-institute-of-education-harvard.csl
+nocite: |
+  @*
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -20,7 +22,7 @@ library(sampleSelection)
 library(ssmrob)
 library(ssmodels)
 
-#Importing packages here to apply the Hessian method. 
+#Importing packages here to apply the Hessian method (Gilbert and Varadhan (2019)). 
 library(numDeriv)
 ```
 
@@ -362,7 +364,7 @@ curve(prof11, n = 100, from = -0.0005, to = 0.0005, ylab = "Profile Likelihood",
       xlab = expression(alpha["exper2"])
       )
 abline(v = OPT$MLE[11], col = "red", lwd = 2)
-legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+legend(x = "topright", legend = c("MLE"), pch = 16, col = "red")
 
 prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE",
                                          method = "BFGS"))
@@ -520,9 +522,9 @@ UPVec[11] = uniroot(f = intprof12, interval = c(0.15, 0.16))$root
 
 intprof13 = Vectorize(function(alpha) prof13(alpha) - bound)
 LPVec[12] = uniroot(f = intprof13, interval = c(-0.2, 0))$root
-UPVec[12] = uniroot(f = intprof13, interval = c(0.05, 0.1))$root
+UPVec[12] = uniroot(f = intprof13, interval = c(0.07, 0.12))$root
 
-for(i in 3:length(LPVec)){
+for(i in 2:length(LPVec)){
   assign(paste("confint", i+1, ".proflik", sep = ""), c(LPVec[i], UPVec[i]))
 }
 #MODIFICATION: Bootstrapped confidence intervals. 
@@ -547,7 +549,7 @@ n = nrow(dat)
 
 #Evaluating the Jackknife influence functions so we can evaluate a.hat.
 #The Jackknife is used to estimate the acceleration parameter, as defined in 
-#DiCiccio and Efron (1996).
+#DiCiccio and Efron (1996), p. .
 
 jackknives = matrix(nrow = n, ncol = length(MLE))
 
@@ -602,3 +604,4 @@ for (i in 1:length(MLE)){
                                                     jackknives))
 }
 ```
+## References

@@ -2,6 +2,10 @@
 title: "Example 2"
 output: html_document
 date: "2024-06-02"
+bibliography: "references2.bib"
+csl: ucl-institute-of-education-harvard.csl
+nocite: |
+  @*
 ---
 
 ```{r setup, include=FALSE}
@@ -14,23 +18,22 @@ knitr::opts_chunk$set(echo = TRUE)
 #The following implementation was taken from Rubio (2024).
 #ADDITION: setting the seed for replicability. 
 set.seed(1111)
-#Importing the sampleSelection package - This is the focal package of my 
-#dissertation. 
+#Importing the sampleSelection (Toomet and Henningsen (2011)) package - This is the focal package of my dissertation. 
 
 library(sampleSelection)
 
-#Importing the libraries ssmrob and ssmodels, which are for robust inference and 
+#Importing the libraries ssmrob(de Souza Bastos and Barreto de Souza (2022)) and ssmodels(Zhelonkin and Ronchetti (2021)), which are for robust inference and 
 #modelling for sample selection models.
 
 library(ssmrob)
 library(ssmodels)
 
-#Importing libraries from Rubio, Montoya and Espinola (2024) to apply the 
-#Hessian method, for curiosity. 
+#Importing numDeriv to apply the Hessian method, for curiosity 
+#(Gilbert and Varadhan (2019)). 
 library(numDeriv)
 
 #Defining the MLE for Tobit-2 model as the function MLETobit2, as discussed in 
-#Chapter 2 of my dissertation.
+#Chapter 2 of my dissertation, from Toomet and Henningsen (2008)
 
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observable model, sel, the responses 
@@ -94,7 +97,7 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
   }
   #Storing the MLES in a vector, remembering to undo the links defined above. 
   MLE = c(exp(OPT$par[1]), tanh(OPT$par[2]), OPT$par[-c(1,2)])
-  #Creating a vector of estimate names...
+  #Creating a vector of estimate names.
   names(MLE) = c("sigma", "rho", "intercept", paste(paste("beta_hat[,", 1:(p-1), 
     sep = "" ),"]", sep = ""), "intercept", paste(paste("alpha_hat[,", 1:(q-1), 
     sep = "" ),"]", sep = "")) 
@@ -109,15 +112,17 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
 ## Profile Likelihood, applied onto MEPS2001
 
 ```{r MEPS2001, echo=FALSE}
-#Attach the MEPS2001 dataset from the ssmrob package. 
+#Attach the MEPS2001 dataset from the ssmrob() package 
+#(Zhelokin and Ronchetti (2021)). 
+#The following analysis follows Rubio (2024a)
 attach(MEPS2001)
 
 #Beginning of exploratory data analysis. 
 #?MEPS2001 - Read documentation for this dataset.
-#Look at the top of
+#Look at the top few elements for eDA.
 head(MEPS2001)
 
-#TODO: Exploratory data analysis. 
+#Exploratory data analysis. 
 
 #Defining design matrices (less the intercept column). 
 #... for the observable model.
@@ -305,16 +310,16 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 prof2 = Vectorize(function(par) prof.lik(parint = atanh(par), ind = 2, 
                                     init = "MLE", method = "nlminb"))
 curve(prof2,-0.6, 0.25 , n = 50, lwd = 1, xlab = expression(rho), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", rho)))
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[2], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #Performing the same procedure here as well for beta_0, the intercept term for 
 #the observable process. 
 prof3 = Vectorize(function(par) prof.lik(parint = par, ind = 3, init = "MLE"))
-curve(prof3, 4.25, 6, n = 50, lwd = 1, xlab = expression(beta[0]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", beta[0])))
+curve(prof3, 4.25, 6, n = 50, lwd = 1, xlab = expression(beta["int"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[3], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
@@ -322,100 +327,100 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 #WARNING: Each graph takes a long time (5-10 minutes) to plot. Execute at your
 #own risk. 
 prof4 = Vectorize(function(par) prof.lik(parint = par, ind = 4, init = "MLE"))
-curve(prof4, 0.15, 0.26, n = 50, lwd = 1, xlab = expression(beta[1]), 
-      ylab = "Profile Likelihood",
-      main = expression(paste("Profile Likelihood for ", beta[1])))
+curve(prof4, 0.15, 0.26, n = 50, lwd = 1, xlab = expression(beta["age"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[4], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof5 = Vectorize(function(par) prof.lik(parint = par, ind = 5, init = "MLE"))
-curve(prof5, 0.2, 0.5 , n = 50, lwd = 1, xlab = expression(beta[2]), 
-      ylab = "Profile Likelihood",
-      main = expression(paste("Profile Likelihood for ", beta[2])))
+curve(prof5, 0.2, 0.5 , n = 50, lwd = 1, xlab = expression(beta["female"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[5], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof6 = Vectorize(function(par) prof.lik(parint = par, ind = 6, init = "MLE"))
-curve(prof6, -0.04, 0.08 , n = 50, lwd = 1, xlab = expression(beta[3]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", beta[3])))
+curve(prof6, -0.04, 0.08 , n = 50, lwd = 1, xlab = expression(beta["educ"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[6], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof7= Vectorize(function(par) prof.lik(parint = par, ind = 7, init = "MLE"))
-curve(prof7, -0.5,0.1 , n = 50, lwd = 1, xlab = expression(beta[4]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", beta[4])))
+curve(prof7, -0.5,0.1 , n = 50, lwd = 1, xlab = expression(beta["blhisp"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[7], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof8 = Vectorize(function(par) prof.lik(parint = par, ind = 8, init = "MLE"))
-curve(prof8, 0.44, 0.64 , n = 50, lwd = 1, xlab = expression(beta[5]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", beta[5])))
+curve(prof8, 0.44, 0.64 , n = 50, lwd = 1, xlab = expression(beta["totchr"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[8], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof9 = Vectorize(function(par) prof.lik(parint = par, ind = 9, init = "MLE"))
-curve(prof9, -0.15, 0.15 , n = 50, lwd = 1, xlab = expression(beta[6]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", beta[6])))
+curve(prof9, -0.15, 0.15 , n = 50, lwd = 1, xlab = expression(beta["ins"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[9], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
   
 prof10 = Vectorize(function(par) prof.lik(parint = par, ind = 10, init = "MLE"))
-curve(prof10, -1.5, 0.5 , n = 50, lwd = 1, xlab = expression(alpha[0]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[0])))
+curve(prof10, -1.5, 0.5 , n = 50, lwd = 1, xlab = expression(alpha["int"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[10], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof11 = Vectorize(function(par) prof.lik(parint = par, ind = 11, init = "MLE"))
-curve(prof11, 0, 0.18, n = 50, lwd = 1, xlab = expression(alpha[1]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[1])))
+curve(prof11, 0, 0.18, n = 50, lwd = 1, xlab = expression(alpha["age"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[11], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof12 = Vectorize(function(par) prof.lik(parint = par, ind = 12, init = "MLE"))
-curve(prof12, 0.2, 1 , n = 50, lwd = 1, xlab = expression(alpha[2]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[2])))
+curve(prof12, 0.2, 1 , n = 50, lwd = 1, xlab = expression(alpha["female"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[12], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE"))
-curve(prof13, 0, 0.2, n = 50, lwd = 1, xlab = expression(alpha[3]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[3])))
+curve(prof13, 0, 0.2, n = 50, lwd = 1, xlab = expression(alpha["educ"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[13], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof14 = Vectorize(function(par) prof.lik(parint = par, ind = 14, init = "MLE"))
-curve(prof14, -0.6, -0.1 , n = 50, lwd = 1, xlab = expression(alpha[4]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[4])))
+curve(prof14, -0.6, -0.1 , n = 50, lwd = 1, xlab = expression(alpha["blhisp"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[14], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof15 = Vectorize(function(par) prof.lik(parint = par, ind = 15, init = "MLE"))
-curve(prof15, 0.4, 1.2, n = 50, lwd = 1, xlab = expression(alpha[5]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[5])))
+curve(prof15, 0.4, 1.2, n = 50, lwd = 1, xlab = expression(alpha["totchr"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[15], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof16 = Vectorize(function(par) prof.lik(parint = par, ind = 16, init = "MLE"))
-curve(prof16, -0.2, 0.4, n = 50, lwd = 1, xlab = expression(alpha[6]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[6])))
+curve(prof16, -0.2, 0.4, n = 50, lwd = 1, xlab = expression(alpha["ins"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[16], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 prof17 = Vectorize(function(par) prof.lik(parint = par, ind = 17, init = "MLE"))
-curve(prof17, -0.01, 0.01, n = 50, lwd = 1, xlab = expression(alpha[7]), 
-      ylab = "Profile Likelihood", 
-      main = expression(paste("Profile Likelihood for ", alpha[7])))
+curve(prof17, -0.01, 0.01, n = 50, lwd = 1, xlab = expression(alpha["income"]), 
+      ylab = "Profile Likelihood"
+      )
 abline(v = OPT$MLE[17], col = "red", lwd = 2)
 legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
@@ -423,11 +428,12 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 
 ```
 
-### Constructing a Profile Likelihood Confidence Interval
+### Constructing a Profile Likelihood Confidence Interval 
 ```{r}
+#Inspired by the implementation from Rubio (2024b). 
 #MODIFICATION - Changed rho to sigma
 #MODIFICATION - added the variable bound to denote the 0.147 boundary point
-#for our profile likelihood confidence interval. 
+#for our profile likelihood confidence interval.
 #Defining our significance level, SL = 0.05
 SL = 0.05
 #Defining bound following Lemma 4.1 in my dissertation. 
@@ -540,13 +546,13 @@ for (i in 1:length(UPvec)){
 ### Hessian Method
 ```{r}
 #THIS IS A NEW ADDITION TO THE CODE - NOT FOUND IN RUBIO (2024). 
-#Performing the procedure as described in Cole (2020), p. 
+#Performing the procedure as described in Cole (2020), pp. 72-73
 #Evaluating the Hessian at the numerically-obtained MLE. 
 hess.model = -hessian(func = OPT$loglik, x = OPT$OPT$par)
 #Getting the Hessian's eigenvalues.
 eigen.vals = eigen(hess.model)$values
-#Getting the reference values as defined in Cole (2020) and in Chapter 5 of 
-#the Dissertation.
+#Getting the reference values as defined in Cole (2020), p.94 
+#and in Chapter 5 of the Dissertation.
 ref.vals = abs(as.vector(eigen.vals))/max(abs(as.vector(eigen.vals)))
 #Getting sev as the sorted vector of reference values. 
 sev = sort(ref.vals)

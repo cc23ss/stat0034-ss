@@ -2,7 +2,10 @@
 title: "Example 1"
 output: html_document
 date: "2024-07-17"
-bibliography:
+bibliography: 'references1.bib'
+csl: ucl-institute-of-education-harvard.csl
+nocite: |
+  @*
 ---
 
 ```{r setup, include=FALSE}
@@ -12,10 +15,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Numerical Simulation
 
 ```{r}
-
 #We'll import the package mvtnorm in order to simulate the errors between 
 #the errors. This is really important since we need to capture the dependence 
-#structure between the noise terms. 
+#structure between the noise terms. (Genz and Bretz (2009))
 
 library(mvtnorm)
 
@@ -46,9 +48,7 @@ alpha = c(1.5, 2, 3)
 
 ## Applying the Tobit-2 Model
 ```{r}
-#Code from example 1. 
-
-#Defining our Tobit-2 Model here, taken from example 1.
+#Defining our Tobit-2 Model here, a modification from Rubio (2024).
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observed model, sel, the responses 
 #of the selection model, deso, the design matrix for the observed model, less 
@@ -121,8 +121,10 @@ npar = 8
 ## A Monte Carlo Approach
 
 ```{r}
+#The following simulation is based on the ADEMP framework discussed in 
+#Chapter 2 of my dissertation. (Morris, White and Crowther (2019))
 #We're going to report the mean absolute deviation (MAD) of each parameter in
-#all possible scenarios to answer the simulation study.
+#all possible scenarios to answer the simulation study. 
 #Creating three matrices for the three mean
 #Defining the number of simulations as n.sims. 
 n.sims = 500
@@ -232,7 +234,7 @@ colMeans(abs(bias.misspec.sel.mat))
 ## Comparison to Linear and Logistic Regression
 
 ```{r}
-#Section based on Rubio (2024). 
+#Section based on Rubio (2024b). 
 #Assume the regression coefficients are -1, 1, 3.
 lin.pred.coeffs = c(-1, 1, 3)
 
