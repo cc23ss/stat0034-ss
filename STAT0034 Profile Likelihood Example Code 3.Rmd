@@ -524,7 +524,10 @@ intprof13 = Vectorize(function(alpha) prof13(alpha) - bound)
 LPVec[12] = uniroot(f = intprof13, interval = c(-0.2, 0))$root
 UPVec[12] = uniroot(f = intprof13, interval = c(0.07, 0.12))$root
 
+#Iterating from index 2 (as index 1 is associated with rho, so we need to treat
+#it separately.)
 for(i in 2:length(LPVec)){
+#Assigning values with assign() and paste() iteratively to the correct variable.
   assign(paste("confint", i+1, ".proflik", sep = ""), c(LPVec[i], UPVec[i]))
 }
 #MODIFICATION: Bootstrapped confidence intervals. 

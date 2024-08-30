@@ -33,7 +33,8 @@ library(ssmodels)
 library(numDeriv)
 
 #Defining the MLE for Tobit-2 model as the function MLETobit2, as discussed in 
-#Chapter 2 of my dissertation, from Toomet and Henningsen (2008)
+#Chapter 2 of my dissertation, from Toomet and Henningsen (2008), modified 
+#following Rubio(2024a)
 
 #This takes inputs init, the inital value from where the parameter estimate is 
 #evaluated from, out, the responses of the observable model, sel, the responses 
@@ -535,7 +536,7 @@ LPvec[15] = uniroot(f = intprof17, interval = c(0, 0.0015))$root
 UPvec[15] = uniroot(f = intprof17, interval = c(0.004, 0.006))$root
 
 #Using a for loop to get all of the confidence intervals desired, iterating over
-#the length of UPvec. 
+#the length of UPvec, and using assign() and paste(). 
 
 for (i in 1:length(UPvec)){
   assign(paste("profint", i+2, sep = ""), value = c(LPvec[i], UPvec[i]))
@@ -546,7 +547,9 @@ for (i in 1:length(UPvec)){
 ### Hessian Method
 ```{r}
 #THIS IS A NEW ADDITION TO THE CODE - NOT FOUND IN RUBIO (2024). 
-#Performing the procedure as described in Cole (2020), pp. 72-73
+#Performing the procedure as described in Cole (2020), pp. 72-73.
+#Setting seed again, just in case. 
+set.seed(1111)
 #Evaluating the Hessian at the numerically-obtained MLE. 
 hess.model = -hessian(func = OPT$loglik, x = OPT$OPT$par)
 #Getting the Hessian's eigenvalues.
