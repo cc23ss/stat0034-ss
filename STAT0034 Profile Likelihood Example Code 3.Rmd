@@ -2,19 +2,19 @@
 title: "Example 3"
 output: html_document
 date: "2024-07-07"
+bibliography: "references3.bib"
+citation_package: biblatex
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-#We import the samle libraries from example 1 here, with identical comments. 
-#Importing the sampleSelection package - This is the focal package of my 
-#dissertation. 
+#Importing the sampleSelection (Toomet and Henningsen (2011)) package - This is the focal package of my dissertation. 
 
 library(sampleSelection)
 
-#Importing the libraries ssmrob and ssmodels, which are for robust inference and 
+#Importing the libraries ssmrob(de Souza Bastos and Barreto de Souza (2022)) and ssmodels(Zhelonkin and Ronchetti (2021)), which are for robust inference and 
 #modelling for sample selection models.
 
 library(ssmrob)
@@ -26,7 +26,7 @@ library(numDeriv)
 
 ## Data Loading and Cleaning
 ```{r pressure, echo=FALSE}
-#Loading in the Mroz87 dataset.
+#Loading in the Mroz87 dataset (Mroz (1987)).
 dat = Mroz87
 #Checking what variables are in Mroz87
 str(dat)
@@ -44,10 +44,10 @@ dat$age2 = dat$age^2
 ```
 ## Exploratory Data Analysis
 ```{r}
-#Tobit-2 model implementation taken from Rubio (2024).
-#Attaching dat
+#Tobit-2 model implementation taken from Rubio (2024a).
+#Attaching 
 attach(dat)
-#... for the selection process.
+#... for the selection process. Models inspired by Rubio (2024b).
 dm.sel = cbind(exper, exper2, educ, city)
 #... for the observable process.
 dm.obs = cbind(age, age2, faminc, kids, educ)
@@ -69,7 +69,7 @@ npar = npar.sel + 1 + npar.obs + 1 + 2
 summary(dm.sel)
 summary(dm.obs)
 
-#Plotting boxplots for 
+#Plotting boxplots for covariates in models. 
 boxplot(cbind(exper, educ), col = c("red", "blue"), 
         main = "Selection Process", xlab = "Covariate")
 legend(x = "topright", legend = c("Work Experience (years)", 
@@ -186,11 +186,11 @@ obsEq = wage ~ exper + I(exper^2) + educ + city
 selectEq = lfp ~ age + I(age^2) + faminc + kids + educ
 
 ssMLE = selection(selectEq, obsEq, data = dat, method = "ml")
--ssMLE
+ssMLE$maximum
 
 #Also comparing against the results of the 2-step estimator.
 ssMLE.2step = selection(selectEq, obsEq, data = dat, method = "2step")
-ssMLE.2step 
+ssMLE.2step
 
 #NOTE: Starting point is set at the MLE of the selection process.
 HMLE = HeckmanCL(selectEq, obsEq, data = dat, start = coef(ssMLE))
@@ -212,7 +212,8 @@ p = length(OPT$MLE)
 ML = OPT$OPT$objective
 MLE = OPT$MLE
 
-#Insert profile likelihood from example 1 with comments.
+#Insert profile likelihood from example 2 with comments 
+#(Modified from Rubio (2024a)).
 #Create the function prof.lik to evaluate the profile likelihood MLE. 
 #This has parameters parint, for the parameter of interest (or its
 #reparametrisations), ind, the corresponding index, init, the initial value used
@@ -369,7 +370,7 @@ curve(prof12, n = 100, from = 0.14, to = 0.16, ylab = "Profile Likelihood",
       xlab = expression(alpha["educ"])
       )
 abline(v = OPT$MLE[12], col = "red", lwd = 2)
-legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
+legend(x = "topright", legend = c("MLE"), pch = 16, col = "red")
 
 prof13 = Vectorize(function(par) prof.lik(parint = par, ind = 13, init = "MLE",
                                          method = "Nelder-Mead"))
@@ -390,8 +391,8 @@ legend(x = "topleft", legend = c("MLE"), pch = 16, col = "red")
 hess.model = -hessian(func = OPT$loglik, x = OPT$OPT$par)
 #Getting the Hessian's eigenvalues.
 eigen.vals = eigen(hess.model)$values
-#Getting the reference values as defined in Cole (2020) and in Chapter 5 of the 
-#Dissertation.
+#Getting the reference values as defined in Cole (2020), p.94  and in Chapter 5 
+#of the Dissertation.
 ref.vals = abs(as.vector(eigen.vals))/max(abs(as.vector(eigen.vals)))
 #Getting sev as the sorted vector of reference values. 
 sev = sort(ref.vals)
@@ -445,12 +446,13 @@ mean(indHess)
 ```{r}
 
 #Implementing the profile likelihood based interval for sigma (inspired by
-#Rubio (2024)).
+#Rubio (2024a)).
 #Defining our significance level, SL = 0.05
 SL = 0.05
 #Defining bound following Lemma 4.1 in my dissertation. 
 bound = exp(-0.5*qchisq(1-SL, df = 1))
-#Defining intprof1 as the pro
+#Defining intprof1 as the profile likelihood adjusted by the bound - we find 
+#zeros using this. 
 #Evaluating the lower bound and upper bound using the uniroot() function as LP
 #and UP respectuvely.
 intprof1 = Vectorize(function(sigma) prof1(sigma) - bound)
@@ -477,16 +479,16 @@ UPVec[1] = uniroot(f = intprof2, interval = c(0.99, 0.999999))$root
 confint2.proflik = tanh(c(LPVec[1], UPVec[1]))
 
 intprof3 = Vectorize(function(beta) prof3(beta) - bound)
-LPVec[2] = uniroot(f = intprof3, interval = c(-10.5, -10))$root
-UPVec[2] = uniroot(f = intprof3, interval = c(-9.8, -9.5))$root
+LPVec[2] = uniroot(f = intprof3, interval = c(-10.2, -9.9))$root
+UPVec[2] = uniroot(f = intprof3, interval = c(-9.7, -9.5))$root
 
 intprof4 = Vectorize(function(beta) prof4(beta) - bound)
 LPVec[3] = uniroot(f = intprof4, interval = c(-0.3, 0.0))$root
 UPVec[3] = uniroot(f = intprof4, interval = c(0.2, 0.5))$root
 
 intprof5 = Vectorize(function(beta) prof5(beta) - bound)
-LPVec[4] = uniroot(f = intprof5, interval = c(-0.01, -0.005))$root
-UPVec[4] = uniroot(f = intprof5, interval = c(0, 0.03))$root
+LPVec[4] = uniroot(f = intprof5, interval = c(-0.002, -0.0018))$root
+UPVec[4] = uniroot(f = intprof5, interval = c(-0.0017, -0.0015))$root
 
 intprof6 = Vectorize(function(beta) prof6(beta) - bound)
 LPVec[5] = uniroot(f = intprof6, interval = c(0, 0.00003))$root
@@ -497,8 +499,8 @@ LPVec[6] = uniroot(f = intprof7, interval = c(-0.7, -0.5))$root
 UPVec[6] = uniroot(f = intprof7, interval = c(-0.3, 0))$root
 
 intprof8 = Vectorize(function(beta) prof8(beta) - bound)
-LPVec[7] = uniroot(f = intprof8, interval = c(0.3, 0.5))$root
-UPVec[7] = uniroot(f = intprof8, interval = c(0.7, 0.8))$root
+LPVec[7] = uniroot(f = intprof8, interval = c(0.55, 0.59))$root
+UPVec[7] = uniroot(f = intprof8, interval = c(0.6, 0.62))$root
 
 intprof9 = Vectorize(function(alpha) prof9(alpha) - bound)
 LPVec[8] = uniroot(f = intprof9, interval = c(-1.9, -1.8))$root
@@ -520,7 +522,7 @@ intprof13 = Vectorize(function(alpha) prof13(alpha) - bound)
 LPVec[12] = uniroot(f = intprof13, interval = c(-0.2, 0))$root
 UPVec[12] = uniroot(f = intprof13, interval = c(0.05, 0.1))$root
 
-for(i in 2:length(LPVec)){
+for(i in 3:length(LPVec)){
   assign(paste("confint", i+1, ".proflik", sep = ""), c(LPVec[i], UPVec[i]))
 }
 #MODIFICATION: Bootstrapped confidence intervals. 
