@@ -110,9 +110,9 @@ MLETobit2 = function(init, out, sel, deso, dess, beta_par = 0,
 }
 ```
 
-## Profile Likelihood, applied onto MEPS2001
+## Exploratory Data Analysis
 
-```{r MEPS2001, echo=FALSE}
+```{r MEPS2001}
 #Attach the MEPS2001 dataset from the ssmrob() package 
 #(Zhelokin and Ronchetti (2021)). 
 #The following analysis follows Rubio (2024a)
@@ -160,7 +160,11 @@ mean(sel)
 
 #observable responses, corresponding to log ambulatory expenditures, lnambx.
 y = lnambx
+```
 
+## Fitting the Tobit-2 Model
+
+```{r}
 #Finding the MLE of the Tobit-2 likelihood, with unscaled parameter. 
 OPT = MLETobit2(init = rep(0, 17), out = y, sel = sel, deso = dm.obs, 
                 dess = dm.sel, method = "nlminb", maxit = 1E4, beta_par = 0)
@@ -208,7 +212,7 @@ ssMLE.2step = selection(selectEq, obsEq, data = MEPS2001, method = "2step")
 coef(ssMLE.2step)
 ```
 
-## Applying the profile likelihood
+## Applying the Profile Likelihood
 ```{r}
 #Defining p, the number of parameters in the model, and ML, the log-loss of 
 #the original MLETobit2 model. 
@@ -563,3 +567,5 @@ sev
 #non-identifiability. 
 sev[1] < 1E-9
 ```
+
+## References 

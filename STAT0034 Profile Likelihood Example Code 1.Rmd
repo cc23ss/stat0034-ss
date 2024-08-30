@@ -330,7 +330,5 @@ MLE.misspec = OPT.misspec$MLE
 
 ```
 
-#Bibliography
-
-
+## References
 
